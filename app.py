@@ -32,7 +32,6 @@ def verificar_contrasena():
         
         # Leemos la contraseña secreta de las variables de entorno (.env en local o Secrets en la nube)
         clave_correcta = st.secrets.get("PANEL_PASSWORD") # Clave por defecto si no encuentra la variable
-        
 
         if st.button("Entrar al Panel", use_container_width=True):
             if clave_introducida == clave_correcta:
@@ -83,7 +82,7 @@ def cargar_datos_panel():
     conexion = obtener_conexion()
     if conexion:
         query_metricas = """
-            SELECT c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, 
+            SELECT c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, c.url,
                    MAX(m.visualizaciones) as visualizaciones, MAX(m.likes) as likes
             FROM contenidos c
             JOIN metricas_rendimiento m ON c.id_contenido = m.id_contenido
@@ -217,9 +216,7 @@ if not df_metricas.empty:
     st.markdown("### 🧠 Insights y Recomendaciones de IA")
 
     if not df_ia.empty:
-        caja_ia1, caja_ia2 = st.columns(2)
-        with caja_ia1:
-            st.info("**Lectura del Rendimiento:**\n\n" + analisis_global)
+        st.info("**Lectura del Rendimiento:**\n\n" + analisis_global)
     else:
         st.info("La IA está analizando los datos. Aún no hay recomendaciones disponibles.")
 
@@ -273,10 +270,23 @@ if not df_metricas.empty:
             if not df_yt.empty:
                 st.altair_chart(generar_linea_arte(df_yt, '#8C8273'), use_container_width=True)
                 
-                df_tabla_yt = df_yt[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'engagement_pct']].copy()
+                # 1. Incluimos la 'url' al copiar las columnas que vamos a mostrar
+                df_tabla_yt = df_yt[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'engagement_pct', 'url']].copy()
                 df_tabla_yt['fecha_publicacion'] = df_tabla_yt['fecha_publicacion'].dt.strftime('%Y-%m-%d')
                 df_tabla_yt['engagement_pct'] = df_tabla_yt['engagement_pct'].apply(lambda x: f"{x:.2f}%")
-                st.dataframe(df_tabla_yt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Ratio Likes'}), width='stretch', hide_index=True)
+
+                # 2. Imprimimos la tabla configurando la columna 'url' como un hipervínculo nativo
+                st.dataframe(
+                    df_tabla_yt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Ratio Likes'}),
+                    column_config={
+                        "url": st.column_config.LinkColumn(
+                            "🔗 Enlace", 
+                            display_text="Ver publicación" # Esto cambia el texto feo del enlace por un botón limpio
+                        )
+                    },
+                    use_container_width=True, 
+                    hide_index=True
+                )
             else:
                 st.info("Sin registros en este periodo.")
                 
@@ -298,10 +308,23 @@ if not df_metricas.empty:
             if not df_tt.empty:
                 st.altair_chart(generar_linea_arte(df_tt, '#5C554B'), use_container_width=True)
                 
-                df_tabla_tt = df_tt[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'engagement_pct']].copy()
+                # 1. Preparamos los datos incluyendo la columna 'url'
+                df_tabla_tt = df_tt[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'engagement_pct', 'url']].copy()
                 df_tabla_tt['fecha_publicacion'] = df_tabla_tt['fecha_publicacion'].dt.strftime('%Y-%m-%d')
                 df_tabla_tt['engagement_pct'] = df_tabla_tt['engagement_pct'].apply(lambda x: f"{x:.2f}%")
-                st.dataframe(df_tabla_tt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Ratio Likes'}), width='stretch', hide_index=True)
+                
+                # 2. Imprimimos la tabla interactiva
+                st.dataframe(
+                    df_tabla_tt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Ratio Likes'}),
+                    column_config={
+                        "url": st.column_config.LinkColumn(
+                            "🔗 Enlace", 
+                            display_text="Ver publicación"
+                        )
+                    },
+                    use_container_width=True, 
+                    hide_index=True
+                )
             else:
                 st.info("Sin registros en este periodo.")
                 
@@ -316,7 +339,7 @@ if not df_metricas.empty:
 
     with tab_ig:
         query_ig_ampliado = """
-            SELECT c.titulo, c.estilo_visual, c.fecha_publicacion, 
+            SELECT c.titulo, c.estilo_visual, c.fecha_publicacion, c.url,
                    MAX(m.visualizaciones) as vistas, MAX(m.likes) as likes, 
                    MAX(m.compartidos) as compartidos, MAX(m.guardados) as guardados
             FROM contenidos c
@@ -345,17 +368,29 @@ if not df_metricas.empty:
             if not df_ig_avanzado.empty:
                 st.altair_chart(generar_linea_arte(df_ig_avanzado.rename(columns={'vistas':'visualizaciones'}), '#D1C8BA'), use_container_width=True)
                 
-                df_tabla_ig = df_ig_avanzado[['titulo', 'estilo_visual', 'fecha_publicacion', 'likes', 'compartidos', 'guardados']].copy()
+                # 1. Preparamos los datos incluyendo la columna 'url'
+                df_tabla_ig = df_ig_avanzado[['titulo', 'estilo_visual', 'fecha_publicacion', 'likes', 'compartidos', 'guardados', 'url']].copy()
                 df_tabla_ig['fecha_publicacion'] = df_tabla_ig['fecha_publicacion'].dt.strftime('%Y-%m-%d')
                 
-                st.dataframe(df_tabla_ig.rename(columns={
-                    'estilo_visual': 'Formato', 
-                    'titulo': 'Obra', 
-                    'fecha_publicacion': 'Fecha',
-                    'likes': '❤️',
-                    'compartidos': '✈️',
-                    'guardados': '💾'
-                }), width='stretch', hide_index=True)
+                # 2. Imprimimos la tabla interactiva con iconos
+                st.dataframe(
+                    df_tabla_ig.rename(columns={
+                        'estilo_visual': 'Formato', 
+                        'titulo': 'Obra', 
+                        'fecha_publicacion': 'Fecha',
+                        'likes': '❤️',
+                        'compartidos': '✈️',
+                        'guardados': '💾'
+                    }), 
+                    column_config={
+                        "url": st.column_config.LinkColumn(
+                            "🔗 Enlace", 
+                            display_text="Ver publicación"
+                        )
+                    },
+                    use_container_width=True, 
+                    hide_index=True
+                )
             else:
                 st.info("Sin registros de Instagram para este periodo.")
                 
