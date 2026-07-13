@@ -11,6 +11,41 @@ warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Analítica | itsbgart", page_icon="✨", layout="wide")
 
+# --- SISTEMA DE AUTENTICACIÓN MAESTRO ---
+def verificar_contrasena():
+    """Devuelve True si el usuario ingresó la contraseña correcta."""
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
+
+    if st.session_state["autenticado"]:
+        return True
+
+    # Pantalla de Login estética y minimalista
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col_logo, col_login, col_espacio = st.columns([1, 2, 1])
+    
+    with col_login:
+        st.markdown("<h2 style='text-align: center; font-family: Lora;'>itsbgart</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.8rem; color: #A39B8F; letter-spacing:1px;'>CUADRO DE MANDOS PRIVADO</p>", unsafe_allow_html=True)
+        
+        clave_introducida = st.text_input("Introduce la clave de acceso", type="password", placeholder="••••••••")
+        
+        # Leemos la contraseña secreta de las variables de entorno (.env en local o Secrets en la nube)
+        clave_correcta = st.getenv("PANEL_PASSWORD", "itsbgart2026") # Clave por defecto si no encuentra la variable
+        
+        if st.button("Entrar al Panel", use_container_width=True):
+            if clave_introducida == clave_correcta:
+                st.session_state["autenticado"] = True
+                st.rerun()
+            else:
+                st.error("Contraseña incorrecta. Acceso denegado.")
+                
+    return False
+
+# Si no pasa el control de seguridad, detenemos la ejecución de la app aquí
+if not verificar_contrasena():
+    st.stop()
+
 # --- MAQUETACIÓN UX/UI ---
 estilo_editorial = """
 <style>
@@ -70,14 +105,23 @@ def generar_linea_arte(datos, color):
     ).properties(height=280).configure_view(strokeWidth=0).configure(background='#FDFBF7').configure_line(color=color).configure_point(color=color, size=60)
 
 def renderizar_etiquetas_visuales(texto):
-    texto = texto.replace("**[VIDEO LARGO]**", "[VIDEO LARGO]").replace("**[SHORT]**", "[SHORT]").replace("**[TIKTOK VERTICAL]**", "[TIKTOK VERTICAL]").replace("**[CARRUSEL]**", "[CARRUSEL]")
+    # 1. Limpiamos cualquier rastro de negritas
+    texto = texto.replace("**[VIDEO LARGO]**", "[VIDEO LARGO]").replace("**[SHORT]**", "[SHORT]")
+    texto = texto.replace("**[TIKTOK VERTICAL]**", "[TIKTOK VERTICAL]").replace("**[CARRUSEL]**", "[CARRUSEL]")
+    texto = texto.replace("**[REEL]**", "[REEL]").replace("**[STORY]**", "[STORY]")
+    
+    # 2. Inyectamos las píldoras HTML precedidas por un doble salto de línea
     texto = texto.replace("[VIDEO LARGO]", "\n\n<span class='badge-largo'>▶ VÍDEO LARGO</span>")
     texto = texto.replace("[SHORT]", "\n\n<span class='badge-corto'>📱 SHORT</span>")
     texto = texto.replace("[TIKTOK VERTICAL]", "\n\n<span class='badge-corto'>📱 VERTICAL</span>")
+    texto = texto.replace("[REEL]", "\n\n<span class='badge-corto'>🎬 REEL</span>")
+    texto = texto.replace("[STORY]", "\n\n<span class='badge-foto'>🤳 STORY</span>")
     texto = texto.replace("[CARRUSEL]", "\n\n<span class='badge-foto'>🖼️ CARRUSEL</span>")
+    
+    # 3. Cortafuegos de Markdown para las viñetas
     texto = texto.replace("\n- ", "\n\n- ").replace("\n* ", "\n\n- ")
     return texto
-
+    
 def extraer_palabras_clave(df, top_n=5):
     if df.empty: return []
     stop_words = {"el", "la", "los", "las", "un", "una", "unos", "unas", "y", "o", "pero", "si", "por", "para", "como", "en", "de", "a", "con", "sin", "mi", "tu", "su", "mis", "tus", "sus", "que", "qué", "al", "del", "lo", "se", "me", "te", "es", "vlog", "video", "vídeo", "cómo", "una"}
@@ -87,17 +131,20 @@ def extraer_palabras_clave(df, top_n=5):
     contador = Counter(palabras_limpias)
     return [palabra for palabra, frec in contador.most_common(top_n)]
 
-# --- PARSEO DE IA ---
-ideas_yt, ideas_tt = "No hay ideas.", "No hay ideas."
+# --- PARSEO DE IA (ACTUALIZADO PARA INSTAGRAM) ---
+ideas_yt, ideas_tt, ideas_ig = "Generando ideas...", "Generando ideas...", "Generando ideas..."
 if not df_ia.empty:
     analisis_global = df_ia.iloc[0]['analisis_rendimiento']
     ideas_raw = df_ia.iloc[0]['ideas_contenido']
-    if "[YOUTUBE]" in ideas_raw and "[TIKTOK]" in ideas_raw:
-        partes_ideas = ideas_raw.split("[YOUTUBE]")
-        subpartes = partes_ideas[1].split("[TIKTOK]")
-        ideas_yt, ideas_tt = subpartes[0].strip(), subpartes[1].strip()
-    else:
-        ideas_yt = ideas_raw
+    
+    # Extraemos bloques con expresiones regulares para evitar cortes limpios fallidos
+    match_yt = re.search(r'\[YOUTUBE\](.*?)\[TIKTOK\]', ideas_raw, re.DOTALL)
+    match_tt = re.search(r'\[TIKTOK\](.*?)\[INSTAGRAM\]', ideas_raw, re.DOTALL)
+    match_ig = re.search(r'\[INSTAGRAM\](.*)', ideas_raw, re.DOTALL)
+    
+    if match_yt: ideas_yt = match_yt.group(1).strip()
+    if match_tt: ideas_tt = match_tt.group(1).strip()
+    if match_ig: ideas_ig = match_ig.group(1).strip()
 
 # --- RENDERIZADO PRINCIPAL ---
 if not df_metricas.empty:
@@ -170,7 +217,7 @@ if not df_metricas.empty:
         )
 
     # --- PESTAÑAS ---
-    tab_global, tab_yt, tab_tt = st.tabs(["Línea Temporal", "YouTube", "TikTok"])
+    tab_global, tab_yt, tab_tt, tab_ig = st.tabs(["Línea Temporal", "YouTube", "TikTok", "Instagram"])
     
     with tab_global:
         st.markdown("<h3 style='font-size:1.2rem; margin-bottom:1rem;'>Evolución del Rendimiento</h3>", unsafe_allow_html=True)
@@ -188,19 +235,17 @@ if not df_metricas.empty:
                 df_tabla_yt = df_yt[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'engagement_pct']].copy()
                 df_tabla_yt['fecha_publicacion'] = df_tabla_yt['fecha_publicacion'].dt.strftime('%Y-%m-%d')
                 df_tabla_yt['engagement_pct'] = df_tabla_yt['engagement_pct'].apply(lambda x: f"{x:.2f}%")
-                st.dataframe(df_tabla_yt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Fidelización'}), width='stretch', hide_index=True)
+                st.dataframe(df_tabla_yt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Ratio Likes'}), width='stretch', hide_index=True)
             else:
                 st.info("Sin registros en este periodo.")
                 
         with col_estrategia:
             claves_yt = extraer_palabras_clave(df_yt)
             if claves_yt:
-                st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>🔍 Términos de Búsqueda y Retención (SEO)</p>", unsafe_allow_html=True)
-                html_keywords = "".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_yt])
-                st.markdown(html_keywords, unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>🔍 Palabras de Retención</p>", unsafe_allow_html=True)
+                st.markdown("".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_yt]), unsafe_allow_html=True)
 
-            st.markdown("<h3 style='font-size:1.2rem; color:#8C8273;'>💡 Ideas de Enfoque Profundo</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='font-size:1.2rem; color:#8C8273; margin-top:1rem;'>💡 Dirección Creativa YouTube</h3>", unsafe_allow_html=True)
             st.markdown(f"<div class='idea-card' style='font-size:0.9rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_yt)}</div>", unsafe_allow_html=True)
 
     with tab_tt:
@@ -215,20 +260,73 @@ if not df_metricas.empty:
                 df_tabla_tt = df_tt[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'engagement_pct']].copy()
                 df_tabla_tt['fecha_publicacion'] = df_tabla_tt['fecha_publicacion'].dt.strftime('%Y-%m-%d')
                 df_tabla_tt['engagement_pct'] = df_tabla_tt['engagement_pct'].apply(lambda x: f"{x:.2f}%")
-                st.dataframe(df_tabla_tt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Fidelización'}), width='stretch', hide_index=True)
+                st.dataframe(df_tabla_tt.rename(columns={'estilo_visual': 'Formato', 'titulo': 'Obra', 'fecha_publicacion': 'Fecha', 'engagement_pct': 'Ratio Likes'}), width='stretch', hide_index=True)
             else:
                 st.info("Sin registros en este periodo.")
                 
         with col_estrategia_tt:
             claves_tt = extraer_palabras_clave(df_tt)
             if claves_tt:
-                st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>🎯 Ganchos de Clasificación (Algoritmo FYP)</p>", unsafe_allow_html=True)
-                html_keywords_tt = "".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_tt])
-                st.markdown(html_keywords_tt, unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>🎯 Ganchos de Clasificación</p>", unsafe_allow_html=True)
+                st.markdown("".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_tt]), unsafe_allow_html=True)
 
-            st.markdown("<h3 style='font-size:1.2rem; color:#8C8273;'>💡 Ideas de Ritmo y Tendencia</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='font-size:1.2rem; color:#8C8273; margin-top:1rem;'>💡 Dirección Creativa TikTok</h3>", unsafe_allow_html=True)
             st.markdown(f"<div class='idea-card' style='font-size:0.9rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_tt)}</div>", unsafe_allow_html=True)
 
+    with tab_ig:
+        # Recuperamos la tabla unificada con la base de datos de Hostinger con las nuevas columnas
+        query_ig_ampliado = """
+            SELECT c.titulo, c.estilo_visual, c.fecha_publicacion, 
+                   MAX(m.visualizaciones) as vistas, MAX(m.likes) as likes, 
+                   MAX(m.compartidos) as compartidos, MAX(m.guardados) as guardados
+            FROM contenidos c
+            JOIN metricas_rendimiento m ON c.id_contenido = m.id_contenido
+            WHERE c.plataforma = 'instagram'
+            GROUP BY c.id_contenido, c.estilo_visual, c.titulo, c.fecha_publicacion
+        """
+        try:
+            con_ig = obtener_conexion()
+            df_ig_avanzado = pd.read_sql(query_ig_ampliado, con_ig)
+            con_ig.close()
+            df_ig_avanzado['fecha_publicacion'] = pd.to_datetime(df_ig_avanzado['fecha_publicacion'])
+            # Aplicar filtro de fecha actual de la UI
+            if opcion_tiempo == "Últimos 30 días":
+                df_ig_avanzado = df_ig_avanzado[df_ig_avanzado['fecha_publicacion'] >= fecha_limite]
+            elif opcion_tiempo == "Últimos 7 días":
+                df_ig_avanzado = df_ig_avanzado[df_ig_avanzado['fecha_publicacion'] >= fecha_limite]
+            if busqueda:
+                df_ig_avanzado = df_ig_avanzado[df_ig_avanzado['titulo'].str.contains(busqueda, case=False, na=False)]
+        except:
+            df_ig_avanzado = pd.DataFrame()
+
+        col_datos_ig, col_estrategia_ig = st.columns([3, 2], gap="large")
+        
+        with col_datos_ig:
+            st.markdown("<h3 style='font-size:1.2rem;'>Métricas de Valor Estético</h3>", unsafe_allow_html=True)
+            if not df_ig_avanzado.empty:
+                st.altair_chart(generar_linea_arte(df_ig_avanzado.rename(columns={'vistas':'visualizaciones'}), '#D1C8BA'), use_container_width=True)
+                
+                df_tabla_ig = df_ig_avanzado[['titulo', 'estilo_visual', 'fecha_publicacion', 'likes', 'compartidos', 'guardados']].copy()
+                df_tabla_ig['fecha_publicacion'] = df_tabla_ig['fecha_publicacion'].dt.strftime('%Y-%m-%d')
+                
+                st.dataframe(df_tabla_ig.rename(columns={
+                    'estilo_visual': 'Formato', 
+                    'titulo': 'Obra', 
+                    'fecha_publicacion': 'Fecha',
+                    'likes': '❤️',
+                    'compartidos': '✈️',
+                    'guardados': '💾'
+                }), width='stretch', hide_index=True)
+            else:
+                st.info("Sin registros de Instagram para este periodo.")
+                
+        with col_estrategia_ig:
+            claves_ig = extraer_palabras_clave(df_ig_avanzado.rename(columns={'vistas':'visualizaciones'}))
+            if claves_ig:
+                st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>✨ Conceptos Visuales Clave</p>", unsafe_allow_html=True)
+                st.markdown("".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_ig]), unsafe_allow_html=True)
+
+            st.markdown("<h3 style='font-size:1.2rem; color:#8C8273; margin-top:1rem;'>💡 Dirección Creativa Instagram</h3>", unsafe_allow_html=True)
+            st.markdown(f"<div class='idea-card' style='font-size:0.9rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_ig)}</div>", unsafe_allow_html=True)
 else:
     st.warning("Ejecuta los extractores para poblar el panel.")
