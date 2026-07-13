@@ -220,8 +220,6 @@ if not df_metricas.empty:
         caja_ia1, caja_ia2 = st.columns(2)
         with caja_ia1:
             st.info("**Lectura del Rendimiento:**\n\n" + analisis_global)
-        with caja_ia2:
-            st.success("**Ideas para próximos contenidos:**\n\n" + ideas_raw)
     else:
         st.info("La IA está analizando los datos. Aún no hay recomendaciones disponibles.")
 
