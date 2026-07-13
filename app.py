@@ -31,7 +31,7 @@ def verificar_contrasena():
         clave_introducida = st.text_input("Introduce la clave de acceso", type="password", placeholder="••••••••")
         
         # Leemos la contraseña secreta de las variables de entorno (.env en local o Secrets en la nube)
-        clave_correcta = st.getenv("PANEL_PASSWORD", "itsbgart2026") # Clave por defecto si no encuentra la variable
+        clave_correcta = st.secrets.get("PANEL_PASSWORD") # Clave por defecto si no encuentra la variable
         
         if st.button("Entrar al Panel", use_container_width=True):
             if clave_introducida == clave_correcta:
