@@ -76,23 +76,31 @@ st.markdown(estilo_editorial, unsafe_allow_html=True)
 # --- HEADER ---
 st.markdown("<h1 style='text-align: left;'>itsbgart <span style='font-family: Montserrat; font-size: 1.3rem; color: #A39B8F; font-weight:300; letter-spacing:1px;'> | CUADRO DE MANDOS</span></h1>", unsafe_allow_html=True)
 
-# --- EXTRACCIÓN DE DATOS ---
-conexion = obtener_conexion()
-if conexion:
-    query_metricas = """
-        SELECT c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, 
-               MAX(m.visualizaciones) as visualizaciones, MAX(m.likes) as likes
-        FROM contenidos c
-        JOIN metricas_rendimiento m ON c.id_contenido = m.id_contenido
-        GROUP BY c.id_contenido, c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion
-    """
-    df_metricas = pd.read_sql(query_metricas, conexion)
-    
-    query_ia = "SELECT analisis_rendimiento, ideas_contenido FROM insights_ia ORDER BY id_insight DESC LIMIT 1"
-    df_ia = pd.read_sql(query_ia, conexion)
-    conexion.close()
-else:
-    st.error("Error al conectar con la base de datos.")
+# --- EXTRACCIÓN DE DATOS (CON CACHÉ) ---
+@st.cache_data(ttl=3600) # Los datos se guardan en la memoria RAM durante 1 hora (3600 segundos)
+def cargar_datos_panel():
+    conexion = obtener_conexion()
+    if conexion:
+        query_metricas = """
+            SELECT c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, 
+                   MAX(m.visualizaciones) as visualizaciones, MAX(m.likes) as likes
+            FROM contenidos c
+            JOIN metricas_rendimiento m ON c.id_contenido = m.id_contenido
+            GROUP BY c.id_contenido, c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion
+        """
+        df_m = pd.read_sql(query_metricas, conexion)
+        
+        query_ia = "SELECT analisis_rendimiento, ideas_contenido FROM insights_ia ORDER BY id_insight DESC LIMIT 1"
+        df_i = pd.read_sql(query_ia, conexion)
+        conexion.close()
+        return df_m, df_i
+    return pd.DataFrame(), pd.DataFrame()
+
+# Llamamos a la función cacheada
+df_metricas, df_ia = cargar_datos_panel()
+
+if df_metricas.empty:
+    st.error("Error al conectar con la base de datos o sin datos disponibles.")
     st.stop()
 
 # --- FUNCIONES AUXILIARES ---
