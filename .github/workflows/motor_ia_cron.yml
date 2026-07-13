@@ -1,0 +1,35 @@
+name: Motor IA Semanal
+
+on:
+  schedule:
+    # Se ejecuta a las 07:00 UTC (09:00 hora de España aprox) todos los lunes (1)
+    - cron: '0 5 * * 1'
+  workflow_dispatch: # Este comando mágico añade un botón en GitHub para probarlo a mano cuando quieras
+
+jobs:
+  ejecutar_motor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 3. Instalar librerías necesarias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 4. Ejecutar el Cerebro IA
+        env:
+          # Aquí inyectamos los secretos de la caja fuerte al ordenador virtual
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: python motor_ia.py

@@ -14,6 +14,7 @@ st.set_page_config(page_title="Analítica | itsbgart", page_icon="✨", layout="
 # --- SISTEMA DE AUTENTICACIÓN MAESTRO ---
 def verificar_contrasena():
     """Devuelve True si el usuario ingresó la contraseña correcta."""
+    
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
@@ -83,14 +84,15 @@ def cargar_datos_panel():
     if conexion:
         query_metricas = """
             SELECT c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, c.url,
-                   MAX(m.visualizaciones) as visualizaciones, MAX(m.likes) as likes
+                   MAX(m.visualizaciones) as visualizaciones, MAX(m.likes) as likes,
+                   MAX(m.compartidos) as compartidos, MAX(m.guardados) as guardados
             FROM contenidos c
             JOIN metricas_rendimiento m ON c.id_contenido = m.id_contenido
-            GROUP BY c.id_contenido, c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion
+            GROUP BY c.id_contenido, c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, c.url
         """
         df_m = pd.read_sql(query_metricas, conexion)
         
-        query_ia = "SELECT analisis_rendimiento, ideas_contenido FROM insights_ia ORDER BY id_insight DESC LIMIT 1"
+        query_ia = "SELECT tendencias_actuales, analisis_rendimiento, ideas_contenido FROM insights_ia ORDER BY id_insight DESC LIMIT 1"
         df_i = pd.read_sql(query_ia, conexion)
         conexion.close()
         return df_m, df_i
@@ -127,13 +129,37 @@ def renderizar_etiquetas_visuales(texto):
     texto = texto.replace("\n- ", "\n\n- ").replace("\n* ", "\n\n- ")
     return texto
     
-def extraer_palabras_clave(df, top_n=5):
+def extraer_palabras_exito(df, top_n=5, modo='texto'):
+    """
+    Extrae palabras clave o hashtags EXCLUSIVAMENTE de las publicaciones 
+    que superan el rendimiento medio.
+    """
     if df.empty: return []
-    stop_words = {"el", "la", "los", "las", "un", "una", "unos", "unas", "y", "o", "pero", "si", "por", "para", "como", "en", "de", "a", "con", "sin", "mi", "tu", "su", "mis", "tus", "sus", "que", "qué", "al", "del", "lo", "se", "me", "te", "es", "vlog", "video", "vídeo", "cómo", "una"}
-    texto_completo = " ".join(df['titulo'].dropna().tolist()).lower()
-    palabras = re.findall(r'\b[a-záéíóúñ]{3,}\b', texto_completo)
-    palabras_limpias = [p for p in palabras if p not in stop_words]
-    contador = Counter(palabras_limpias)
+    
+    # 1. Filtro de Éxito: Solo analizamos los posts que superan la media de vistas
+    media_vistas = df['visualizaciones'].mean()
+    df_exito = df[df['visualizaciones'] >= media_vistas]
+    
+    # Si hay muy poquitos datos que superen la media (ej. has filtrado a 7 días), usamos todos
+    if len(df_exito) < 3: 
+        df_exito = df
+
+    texto_completo = " ".join(df_exito['titulo'].dropna().tolist()).lower()
+
+    if modo == 'hashtags':
+        # Buscamos específicamente palabras que empiecen por #
+        palabras = re.findall(r'#\w+', texto_completo)
+        # Quitamos la almohadilla para que quede limpio en el diseño visual
+        palabras = [p.replace('#', '') for p in palabras]
+    else:
+        # Buscamos palabras normales, pero con un filtro de basura mucho más fuerte (mínimo 4 letras)
+        stop_words = {"para", "como", "vlog", "video", "vídeo", "cómo", "este", "esta", "estos", "estas", 
+                      "hoy", "día", "hacer", "haciendo", "vez", "muy", "más", "pero", "todo", "nada", 
+                      "mucho", "porque", "cuando", "desde", "hasta", "sobre", "también", "solo"}
+        palabras_raw = re.findall(r'\b[a-záéíóúñ]{4,}\b', texto_completo)
+        palabras = [p for p in palabras_raw if p not in stop_words]
+
+    contador = Counter(palabras)
     return [palabra for palabra, frec in contador.most_common(top_n)]
 
 # --- PARSEO DE IA (ACTUALIZADO PARA INSTAGRAM) ---
@@ -157,6 +183,8 @@ if not df_metricas.empty:
     df_metricas['estilo_visual'] = df_metricas['estilo_visual'].fillna('Vídeo')
     df_metricas['fecha_publicacion'] = pd.to_datetime(df_metricas['fecha_publicacion'])
     df_metricas['engagement_pct'] = (df_metricas['likes'] / df_metricas['visualizaciones'] * 100).fillna(0)
+    df_metricas['compartidos'] = df_metricas['compartidos'].fillna(0).astype(int)
+    df_metricas['guardados'] = df_metricas['guardados'].fillna(0).astype(int)
 
     # --- BARRA DE CONTROLES (Integrada) ---
     st.markdown("<hr style='border: 0; height: 1px; background: #E8E3DA; margin-bottom: 1.5rem;'>", unsafe_allow_html=True)
@@ -216,7 +244,11 @@ if not df_metricas.empty:
     st.markdown("### 🧠 Insights y Recomendaciones de IA")
 
     if not df_ia.empty:
-        st.info("**Lectura del Rendimiento:**\n\n" + analisis_global)
+        tendencias_globales = df_ia.iloc[0].get('tendencias_actuales', 'No hay tendencias registradas.')
+        analisis_global = df_ia.iloc[0]['analisis_rendimiento']
+        
+        st.success("**🌊 Radar de Algoritmos (Tendencias de la semana):**\n\n" + tendencias_globales)
+        st.info("**📈 Lectura de tu Rendimiento:**\n\n" + analisis_global)
     else:
         st.info("La IA está analizando los datos. Aún no hay recomendaciones disponibles.")
 
@@ -255,7 +287,7 @@ if not df_metricas.empty:
     # ==========================================
 
     # --- PESTAÑAS (Mantenidas de tu código original) ---
-    tab_global, tab_yt, tab_tt, tab_ig = st.tabs(["Línea Temporal", "YouTube", "TikTok", "Instagram"])
+    tab_global, tab_yt, tab_tt, tab_ig, tab_kpis = st.tabs(["Línea Temporal", "YouTube", "TikTok", "Instagram", "🏆 Análisis Avanzado"])
     
     with tab_global:
         st.markdown("<h3 style='font-size:1.2rem; margin-bottom:1rem;'>Evolución del Rendimiento</h3>", unsafe_allow_html=True)
@@ -291,7 +323,7 @@ if not df_metricas.empty:
                 st.info("Sin registros en este periodo.")
                 
         with col_estrategia:
-            claves_yt = extraer_palabras_clave(df_yt)
+            claves_yt = extraer_palabras_exito(df_yt, top_n=5, modo='texto')
             if claves_yt:
                 st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>🔍 Palabras de Retención</p>", unsafe_allow_html=True)
                 st.markdown("".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_yt]), unsafe_allow_html=True)
@@ -329,7 +361,7 @@ if not df_metricas.empty:
                 st.info("Sin registros en este periodo.")
                 
         with col_estrategia_tt:
-            claves_tt = extraer_palabras_clave(df_tt)
+            claves_tt = extraer_palabras_exito(df_tt, top_n=5, modo='hashtags')
             if claves_tt:
                 st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>🎯 Ganchos de Clasificación</p>", unsafe_allow_html=True)
                 st.markdown("".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_tt]), unsafe_allow_html=True)
@@ -395,12 +427,60 @@ if not df_metricas.empty:
                 st.info("Sin registros de Instagram para este periodo.")
                 
         with col_estrategia_ig:
-            claves_ig = extraer_palabras_clave(df_ig_avanzado.rename(columns={'vistas':'visualizaciones'}))
+            claves_ig = extraer_palabras_exito(df_ig_avanzado.rename(columns={'vistas': 'visualizaciones'}), top_n=5, modo='texto')
             if claves_ig:
                 st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600; margin-bottom: 5px;'>✨ Conceptos Visuales Clave</p>", unsafe_allow_html=True)
                 st.markdown("".join([f"<span class='badge-keyword'>#{palabra}</span>" for palabra in claves_ig]), unsafe_allow_html=True)
 
             st.markdown("<h3 style='font-size:1.2rem; color:#8C8273; margin-top:1rem;'>💡 Dirección Creativa Instagram</h3>", unsafe_allow_html=True)
             st.markdown(f"<div class='idea-card' style='font-size:0.9rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_ig)}</div>", unsafe_allow_html=True)
+    with tab_kpis:
+        st.markdown("<h3 style='font-size:1.2rem; margin-bottom:1rem;'>Inteligencia de Datos y KPIs Estratégicos</h3>", unsafe_allow_html=True)
+        
+        # --- 1. Rendimiento Medio por Categoría ---
+        st.markdown("#### 📊 Rendimiento Medio de Guardados por Categoría")
+        df_categorias = df_filtrado.groupby('estilo_visual')[['visualizaciones', 'likes', 'compartidos', 'guardados']].mean().round(0).reset_index()
+        df_categorias = df_categorias[df_categorias['visualizaciones'] > 0]
+        
+        grafico_categorias = alt.Chart(df_categorias).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X('estilo_visual:N', title='Línea Editorial', sort='-y'),
+            y=alt.Y('guardados:Q', title='Media de Guardados'),
+            color=alt.Color('estilo_visual:N', legend=None, scale=alt.Scale(scheme='pastel2')),
+            tooltip=['estilo_visual', 'visualizaciones', 'likes', 'compartidos', 'guardados']
+        ).properties(height=300)
+        st.altair_chart(grafico_categorias, use_container_width=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_kpis1, col_kpis2 = st.columns(2, gap="large")
+        
+        with col_kpis1:
+            # --- 2. Top 10 Engagement Combinado ---
+            st.markdown("#### 🔥 Top 10 por Engagement Total")
+            st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Calculado dando más peso a la retención (compartidos x3 y guardados x5).</p>", unsafe_allow_html=True)
+            
+            df_engagement = df_filtrado.copy()
+            df_engagement['Puntuación'] = df_engagement['likes'] + (df_engagement['compartidos'] * 3) + (df_engagement['guardados'] * 5)
+            df_top_10 = df_engagement.sort_values(by='Puntuación', ascending=False).head(10)
+            
+            st.dataframe(
+                df_top_10[['plataforma', 'titulo', 'estilo_visual', 'Puntuación', 'url']].rename(columns={'plataforma': 'Red', 'titulo': 'Obra', 'estilo_visual': 'Categoría'}),
+                column_config={"url": st.column_config.LinkColumn("🔗", display_text="Ver post")},
+                use_container_width=True, hide_index=True
+            )
+
+        with col_kpis2:
+            # --- 3. Top 5 Más Virales ---
+            st.markdown("#### 🚀 Top 5 Máxima Viralidad")
+            st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Basado exclusivamente en la voluntad de la comunidad de compartir y guardar la obra.</p>", unsafe_allow_html=True)
+            
+            df_viral = df_filtrado.copy()
+            df_viral['Viralidad'] = df_viral['compartidos'] + df_viral['guardados']
+            df_top_5 = df_viral[df_viral['visualizaciones'] > 100].sort_values(by='Viralidad', ascending=False).head(5)
+            
+            st.dataframe(
+                df_top_5[['plataforma', 'titulo', 'compartidos', 'guardados', 'url']].rename(columns={'plataforma': 'Red', 'titulo': 'Obra', 'compartidos': '✈️ Compartidos', 'guardados': '💾 Guardados'}),
+                column_config={"url": st.column_config.LinkColumn("🔗", display_text="Ver post")},
+                use_container_width=True, hide_index=True
+            )
 else:
     st.warning("Ejecuta los extractores para poblar el panel.")
