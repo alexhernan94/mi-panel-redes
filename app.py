@@ -33,6 +33,7 @@ def verificar_contrasena():
         # Leemos la contraseña secreta de las variables de entorno (.env en local o Secrets en la nube)
         clave_correcta = st.secrets.get("PANEL_PASSWORD") # Clave por defecto si no encuentra la variable
         
+
         if st.button("Entrar al Panel", use_container_width=True):
             if clave_introducida == clave_correcta:
                 st.session_state["autenticado"] = True
@@ -113,12 +114,10 @@ def generar_linea_arte(datos, color):
     ).properties(height=280).configure_view(strokeWidth=0).configure(background='#FDFBF7').configure_line(color=color).configure_point(color=color, size=60)
 
 def renderizar_etiquetas_visuales(texto):
-    # 1. Limpiamos cualquier rastro de negritas
     texto = texto.replace("**[VIDEO LARGO]**", "[VIDEO LARGO]").replace("**[SHORT]**", "[SHORT]")
     texto = texto.replace("**[TIKTOK VERTICAL]**", "[TIKTOK VERTICAL]").replace("**[CARRUSEL]**", "[CARRUSEL]")
     texto = texto.replace("**[REEL]**", "[REEL]").replace("**[STORY]**", "[STORY]")
     
-    # 2. Inyectamos las píldoras HTML precedidas por un doble salto de línea
     texto = texto.replace("[VIDEO LARGO]", "\n\n<span class='badge-largo'>▶ VÍDEO LARGO</span>")
     texto = texto.replace("[SHORT]", "\n\n<span class='badge-corto'>📱 SHORT</span>")
     texto = texto.replace("[TIKTOK VERTICAL]", "\n\n<span class='badge-corto'>📱 VERTICAL</span>")
@@ -126,7 +125,6 @@ def renderizar_etiquetas_visuales(texto):
     texto = texto.replace("[STORY]", "\n\n<span class='badge-foto'>🤳 STORY</span>")
     texto = texto.replace("[CARRUSEL]", "\n\n<span class='badge-foto'>🖼️ CARRUSEL</span>")
     
-    # 3. Cortafuegos de Markdown para las viñetas
     texto = texto.replace("\n- ", "\n\n- ").replace("\n* ", "\n\n- ")
     return texto
     
@@ -145,7 +143,6 @@ if not df_ia.empty:
     analisis_global = df_ia.iloc[0]['analisis_rendimiento']
     ideas_raw = df_ia.iloc[0]['ideas_contenido']
     
-    # Extraemos bloques con expresiones regulares para evitar cortes limpios fallidos
     match_yt = re.search(r'\[YOUTUBE\](.*?)\[TIKTOK\]', ideas_raw, re.DOTALL)
     match_tt = re.search(r'\[TIKTOK\](.*?)\[INSTAGRAM\]', ideas_raw, re.DOTALL)
     match_ig = re.search(r'\[INSTAGRAM\](.*)', ideas_raw, re.DOTALL)
@@ -183,7 +180,6 @@ if not df_metricas.empty:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- LÓGICA DE LOS FILTROS ---
-    # 1. Filtro de Tiempo
     if opcion_tiempo == "Últimos 30 días":
         fecha_limite = datetime.now() - timedelta(days=30)
         df_filtrado = df_metricas[df_metricas['fecha_publicacion'] >= fecha_limite]
@@ -193,7 +189,6 @@ if not df_metricas.empty:
     else:
         df_filtrado = df_metricas.copy()
 
-    # 2. Filtro de Texto (Buscador)
     if busqueda:
         df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busqueda, case=False, na=False)]
 
@@ -214,17 +209,57 @@ if not df_metricas.empty:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- IA GLOBAL ---
-    if not df_ia.empty:
-        st.markdown(
-            f"<div class='bloque-ia'>"
-            f"<p style='margin:0; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600;'>Lectura de Línea Editorial</p>"
-            f"<p style='margin-top:0.5rem; margin-bottom:0; font-family:Lora; font-size:1.1rem; line-height:1.6; color:#4A453F;'>{analisis_global}</p>"
-            f"</div>", 
-            unsafe_allow_html=True
-        )
+    # ==========================================
+    # ✂️ AQUÍ EMPIEZA EL CÓDIGO NUEVO (SÚPER-ECOSISTEMA)
+    # ==========================================
+    
+    # --- 1. MÓDULO DE INTELIGENCIA ARTIFICIAL GLOBAL ---
+    st.markdown("### 🧠 Insights y Recomendaciones de IA")
 
-    # --- PESTAÑAS ---
+    if not df_ia.empty:
+        caja_ia1, caja_ia2 = st.columns(2)
+        with caja_ia1:
+            st.info("**Lectura del Rendimiento:**\n\n" + analisis_global)
+        with caja_ia2:
+            st.success("**Ideas para próximos contenidos:**\n\n" + ideas_raw)
+    else:
+        st.info("La IA está analizando los datos. Aún no hay recomendaciones disponibles.")
+
+    st.markdown("<hr style='border: 1px solid #EAE6DF;'>", unsafe_allow_html=True)
+
+    # --- 2. ECOSISTEMA VISUAL INTERACTIVO ---
+    st.markdown("### 📊 Rendimiento del Ecosistema")
+
+    col_grafico1, col_grafico2 = st.columns([2, 1])
+
+    with col_grafico1:
+        st.markdown("**Evolución de Visualizaciones por Plataforma**")
+        grafico_lineas = alt.Chart(df_filtrado).mark_line(point=True).encode(
+            x=alt.X('fecha_publicacion:T', title='Fecha de Publicación'),
+            y=alt.Y('visualizaciones:Q', title='Visualizaciones'),
+            color=alt.Color('plataforma:N', scale=alt.Scale(scheme='set2'), title='Plataforma'),
+            tooltip=['titulo', 'plataforma', 'fecha_publicacion', 'visualizaciones', 'likes']
+        ).properties(height=350).interactive()
+        st.altair_chart(grafico_lineas, use_container_width=True)
+
+    with col_grafico2:
+        st.markdown("**Interacciones por Estilo Visual**")
+        grafico_barras = alt.Chart(df_filtrado).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X('estilo_visual:N', title='Línea Editorial', sort='-y'),
+            y=alt.Y('sum(likes):Q', title='Total de Likes'),
+            color=alt.Color('estilo_visual:N', legend=None, scale=alt.Scale(scheme='pastel1')),
+            tooltip=['estilo_visual', 'sum(likes)']
+        ).properties(height=350)
+        st.altair_chart(grafico_barras, use_container_width=True)
+
+    with st.expander("Ver tabla de datos original"):
+        st.dataframe(df_filtrado[['fecha_publicacion', 'titulo', 'plataforma', 'estilo_visual', 'visualizaciones', 'likes']].sort_values('fecha_publicacion', ascending=False), use_container_width=True)
+
+    # ==========================================
+    # ✂️ AQUÍ TERMINA EL CÓDIGO NUEVO
+    # ==========================================
+
+    # --- PESTAÑAS (Mantenidas de tu código original) ---
     tab_global, tab_yt, tab_tt, tab_ig = st.tabs(["Línea Temporal", "YouTube", "TikTok", "Instagram"])
     
     with tab_global:
@@ -282,7 +317,6 @@ if not df_metricas.empty:
             st.markdown(f"<div class='idea-card' style='font-size:0.9rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_tt)}</div>", unsafe_allow_html=True)
 
     with tab_ig:
-        # Recuperamos la tabla unificada con la base de datos de Hostinger con las nuevas columnas
         query_ig_ampliado = """
             SELECT c.titulo, c.estilo_visual, c.fecha_publicacion, 
                    MAX(m.visualizaciones) as vistas, MAX(m.likes) as likes, 
@@ -297,7 +331,6 @@ if not df_metricas.empty:
             df_ig_avanzado = pd.read_sql(query_ig_ampliado, con_ig)
             con_ig.close()
             df_ig_avanzado['fecha_publicacion'] = pd.to_datetime(df_ig_avanzado['fecha_publicacion'])
-            # Aplicar filtro de fecha actual de la UI
             if opcion_tiempo == "Últimos 30 días":
                 df_ig_avanzado = df_ig_avanzado[df_ig_avanzado['fecha_publicacion'] >= fecha_limite]
             elif opcion_tiempo == "Últimos 7 días":
