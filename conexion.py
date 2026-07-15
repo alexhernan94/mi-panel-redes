@@ -7,14 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def _obtener_variable(nombre):
-    """Lee una variable: primero de os.environ, luego de st.secrets como fallback."""
+    """Lee una variable: primero de os.environ/.env, luego de st.secrets como fallback."""
     valor = os.getenv(nombre)
     if valor:
         return valor
-    # Fallback: leer de Streamlit secrets (cuando corre en Streamlit Cloud)
     try:
         import streamlit as st
-        return st.secrets.get(nombre)
+        return st.secrets[nombre]
     except Exception:
         return None
 

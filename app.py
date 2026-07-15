@@ -27,13 +27,22 @@ def verificar_contrasena():
     if st.session_state["autenticado"]:
         return True
 
+    # Leer la contraseña desde st.secrets o desde .env
+    try:
+        clave_correcta = st.secrets["PANEL_PASSWORD"]
+    except Exception:
+        clave_correcta = os.getenv("PANEL_PASSWORD")
+    
+    # Si no hay contraseña configurada, dejar pasar (modo desarrollo local)
+    if not clave_correcta:
+        return True
+
     st.markdown("<br><br>", unsafe_allow_html=True)
     col_logo, col_login, col_espacio = st.columns([1, 2, 1])
     with col_login:
         st.markdown("<h2 style='text-align: center; font-family: Lora;'>itsbgart</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 0.8rem; color: #A39B8F; letter-spacing:1px;'>CUADRO DE MANDOS PRIVADO</p>", unsafe_allow_html=True)
         clave_introducida = st.text_input("Introduce la clave de acceso", type="password", placeholder="••••••••")
-        clave_correcta = st.secrets.get("PANEL_PASSWORD")
         if st.button("Entrar al Panel", use_container_width=True):
             if clave_introducida == clave_correcta:
                 st.session_state["autenticado"] = True
