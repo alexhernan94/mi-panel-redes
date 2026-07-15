@@ -255,6 +255,19 @@ Estructura el output EXACTAMENTE así:
 [STORY] Título de la idea 2
 - 👁️ Interacción: (Formato interactivo propuesto)
 - 🎣 Gancho Visual: (Elemento visual clave)
+
+[PLANIFICADOR SEMANAL]
+Propón un calendario semanal concreto basado en los datos de rendimiento por día de la semana y formato. Estructura exactamente así:
+
+- Lunes: (formato + plataforma + concepto breve)
+- Martes: (formato + plataforma + concepto breve)
+- Miércoles: (formato + plataforma + concepto breve)
+- Jueves: (formato + plataforma + concepto breve)
+- Viernes: (formato + plataforma + concepto breve)
+- Sábado: (formato + plataforma + concepto breve)
+- Domingo: (formato + plataforma + concepto breve)
+
+Justifica brevemente por qué ese día va ese formato (basado en las métricas reales).
 """
 
 
