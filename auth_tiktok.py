@@ -1,9 +1,10 @@
 import os
 import urllib.parse
 import requests
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 
-load_dotenv()
+ruta_env = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(ruta_env)
 
 CLIENT_KEY = os.getenv('TIKTOK_CLIENT_KEY')
 CLIENT_SECRET = os.getenv('TIKTOK_CLIENT_SECRET')
@@ -48,8 +49,19 @@ def obtener_token():
     datos_json = respuesta.json()
     
     if 'access_token' in datos_json:
-        print("\n🎉 ¡ÉXITO! Aquí tienes tu Access Token. Cópialo y añádelo a tu archivo .env como TIKTOK_ACCESS_TOKEN:")
-        print(f"\n{datos_json['access_token']}\n")
+        access_token = datos_json['access_token']
+        refresh_token = datos_json.get('refresh_token', '')
+        
+        # Guardar automáticamente en el .env
+        set_key(ruta_env, "TIKTOK_ACCESS_TOKEN", access_token)
+        if refresh_token:
+            set_key(ruta_env, "TIKTOK_REFRESH_TOKEN", refresh_token)
+        
+        print("\n🎉 ¡ÉXITO! Tokens guardados automáticamente en tu .env:")
+        print(f"   TIKTOK_ACCESS_TOKEN = {access_token[:20]}...")
+        if refresh_token:
+            print(f"   TIKTOK_REFRESH_TOKEN = {refresh_token[:20]}...")
+            print("\n   El refresh token se usará para renovar automáticamente el acceso (válido 365 días).")
     else:
         print("\nHubo un error al pedir el token:")
         print(datos_json)

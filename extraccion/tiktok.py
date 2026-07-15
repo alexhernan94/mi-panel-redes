@@ -2,19 +2,74 @@ import os
 import sys
 import requests
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 
 # Conectar con el archivo base de datos en la raíz
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conexion import obtener_conexion
 
-load_dotenv()
+ruta_env = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+load_dotenv(ruta_env)
 
 TIKTOK_TOKEN = os.getenv('TIKTOK_ACCESS_TOKEN')
+TIKTOK_CLIENT_KEY = os.getenv('TIKTOK_CLIENT_KEY')
+TIKTOK_CLIENT_SECRET = os.getenv('TIKTOK_CLIENT_SECRET')
+TIKTOK_REFRESH_TOKEN = os.getenv('TIKTOK_REFRESH_TOKEN')
+
+
+def auto_renovar_token_tiktok():
+    """Usa el refresh_token para obtener un nuevo access_token sin intervención del usuario."""
+    global TIKTOK_TOKEN, TIKTOK_REFRESH_TOKEN
+
+    print("🔄 Renovando token de TikTok...")
+
+    if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET or not TIKTOK_REFRESH_TOKEN:
+        print("⚠️ No se puede auto-renovar TikTok: faltan TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET o TIKTOK_REFRESH_TOKEN en .env")
+        return False
+
+    url = "https://open.tiktokapis.com/v2/oauth/token/"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    datos = {
+        "client_key": TIKTOK_CLIENT_KEY,
+        "client_secret": TIKTOK_CLIENT_SECRET,
+        "grant_type": "refresh_token",
+        "refresh_token": TIKTOK_REFRESH_TOKEN
+    }
+
+    try:
+        respuesta = requests.post(url, headers=headers, data=datos)
+        datos_json = respuesta.json()
+
+        if "access_token" in datos_json:
+            nuevo_access = datos_json["access_token"]
+            nuevo_refresh = datos_json.get("refresh_token", TIKTOK_REFRESH_TOKEN)
+
+            # Guardar ambos tokens en el .env
+            set_key(ruta_env, "TIKTOK_ACCESS_TOKEN", nuevo_access)
+            set_key(ruta_env, "TIKTOK_REFRESH_TOKEN", nuevo_refresh)
+
+            TIKTOK_TOKEN = nuevo_access
+            TIKTOK_REFRESH_TOKEN = nuevo_refresh
+
+            print("✅ Token de TikTok renovado correctamente")
+            return True
+        else:
+            error_msg = datos_json.get("error", datos_json.get("message", "Error desconocido"))
+            print(f"⚠️ No se pudo renovar el token de TikTok: {error_msg}")
+            print("   Si el refresh_token ha expirado (>365 días), necesitas re-autorizar manualmente con auth_tiktok.py")
+            return False
+    except Exception as e:
+        print(f"⚠️ Error de conexión al renovar token de TikTok: {e}")
+        return False
 
 def extraer_y_guardar_tiktok():
+    global TIKTOK_TOKEN
+
+    # Intentar renovar el token antes de extraer
+    auto_renovar_token_tiktok()
+
     if not TIKTOK_TOKEN:
-        print("Error: Falta TIKTOK_ACCESS_TOKEN en el archivo .env")
+        print("⚠️ Extracción de TikTok omitida (falta TIKTOK_ACCESS_TOKEN)")
         return
 
     print("Conectando con la API de TikTok...")
@@ -51,7 +106,6 @@ def extraer_y_guardar_tiktok():
             return
 
         cursor = conexion.cursor()
-        hoy = datetime.now().strftime("%Y-%m-%d")
 
         for video in videos:
             id_video = video.get('id')
@@ -66,24 +120,26 @@ def extraer_y_guardar_tiktok():
             # Métricas
             vistas = video.get('view_count', 0)
             likes = video.get('like_count', 0)
-            comentarios = video.get('comment_count', 0)
             compartidos = video.get('share_count', 0)
 
             # 1. Guardar en el catálogo fijo (contenidos)
             sql_contenido = """
                 INSERT IGNORE INTO contenidos 
-                (id_contenido, plataforma, titulo, fecha_publicacion, url_publicacion, estilo_visual) 
+                (id_contenido, plataforma, titulo, fecha_publicacion, url, estilo_visual) 
                 VALUES (%s, %s, %s, %s, %s, %s)
             """
             cursor.execute(sql_contenido, (id_video, 'tiktok', titulo, fecha_pub, url_video, 'Vídeo vertical'))
 
             # 2. Guardar en el histórico diario (metricas_rendimiento)
+            # Usamos la fecha real de publicación del vídeo, no la fecha de sincronización
+            fecha_registro = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
             sql_metricas = """
                 INSERT INTO metricas_rendimiento 
-                (id_contenido, fecha_registro, visualizaciones, likes, comentarios, compartidos) 
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (id_contenido, fecha_registro, visualizaciones, likes, compartidos) 
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s, compartidos=%s
             """
-            cursor.execute(sql_metricas, (id_video, hoy, vistas, likes, comentarios, compartidos))
+            cursor.execute(sql_metricas, (id_video, fecha_registro, vistas, likes, compartidos, vistas, likes, compartidos))
             
             print(f"Guardado en Hostinger: {titulo} ({vistas} vistas)")
 

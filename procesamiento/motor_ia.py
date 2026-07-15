@@ -9,14 +9,6 @@ from conexion import obtener_conexion
 
 load_dotenv()
 
-clave_api = os.getenv('GEMINI_API_KEY')
-if not clave_api:
-    print("❌ Error: No se ha encontrado la variable GEMINI_API_KEY en el archivo .env")
-    sys.exit(1)
-
-cliente_ia = genai.Client(api_key=clave_api)
-
-
 # --- 📊 EXTRACCIÓN INTELIGENTE DE DATOS ---
 def extraer_datos_rendimiento(cursor):
     """Extrae datos multi-dimensionales para alimentar el análisis de la IA."""
@@ -270,6 +262,24 @@ Estructura el output EXACTAMENTE así:
 def analizar_y_generar_ideas():
     print("🧠 Motor IA — Iniciando análisis estratégico...")
     print("=" * 50)
+
+    # 0. INICIALIZACIÓN DE GEMINI (A PRUEBA DE FALLOS)
+    clave_api = os.getenv('GEMINI_API_KEY')
+    
+    # Si no la encuentra en el .env, intenta leerla de los secretos de Streamlit
+    if not clave_api:
+        try:
+            import streamlit as st
+            clave_api = st.secrets.get("GEMINI_API_KEY")
+        except ImportError:
+            pass
+
+    if not clave_api:
+        print("❌ Error: No se ha encontrado la clave de API de Gemini.")
+        return
+
+    # Inicializamos el cliente solo cuando la función es llamada
+    cliente_ia = genai.Client(api_key=clave_api)
     
     # 1. CONEXIÓN A BASE DE DATOS
     conexion = obtener_conexion()
@@ -315,14 +325,23 @@ def analizar_y_generar_ideas():
         
         # 5. SEGMENTACIÓN Y ALMACENAMIENTO
         tendencias, analisis, ideas_plataformas = segmentar_respuesta(texto_completo)
-        
-        #cursor.execute("TRUNCATE TABLE insights_ia")
 
         sql_insert = """
             INSERT INTO insights_ia (tendencias_actuales, analisis_rendimiento, ideas_contenido) 
             VALUES (%s, %s, %s)
         """
         cursor.execute(sql_insert, (tendencias, analisis, ideas_plataformas))
+        
+        # Mantener solo los últimos 10 registros para no crecer indefinidamente
+        cursor.execute("""
+            DELETE FROM insights_ia 
+            WHERE id_insight NOT IN (
+                SELECT id_insight FROM (
+                    SELECT id_insight FROM insights_ia ORDER BY fecha_generacion DESC LIMIT 10
+                ) AS recientes
+            )
+        """)
+        
         conexion.commit()
         
         print("=" * 50)
