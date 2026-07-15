@@ -6,3 +6,4 @@ python-dotenv
 requests
 google-generativeai
 google-genai
+google-api-python-client
