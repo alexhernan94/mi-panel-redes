@@ -23,8 +23,6 @@ st.set_page_config(page_title="Analítica | itsbgart", page_icon="✨", layout="
 def verificar_contrasena():
     """Devuelve True si el usuario ingresó la contraseña correcta."""
 
-    return True
-
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
