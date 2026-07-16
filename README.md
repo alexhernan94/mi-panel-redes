@@ -8,14 +8,19 @@ Cuadro de mandos privado para la marca **itsbgart** que centraliza las métricas
 
 ## Funcionalidades
 
-- **Extracción automática** de métricas de Instagram (posts + stories + insights), TikTok y YouTube
-- **Motor de IA** (Gemini) que analiza el rendimiento y genera ideas de contenido semanales
+- **Extracción automática** de métricas de Instagram (posts + stories + insights + reach), TikTok y YouTube
+- **Motor de IA** (Gemini) que analiza el rendimiento y genera ideas de contenido 2x/semana
+- **Captions listos para copiar** generados por IA, optimizados para engagement
 - **Planificador semanal** automático basado en datos reales de engagement por día
+- **Sistema de objetivos** con proyección de crecimiento ("a este ritmo llegas el X")
+- **Alertas por email** cuando un post se viraliza o un token tiene problemas
 - **Detección de anomalías** (posts virales y bajo rendimiento) por plataforma
 - **Mejor hora de publicación** segmentada por red social (hora Madrid)
 - **Contenido evergreen** — identifica posts que siguen generando vistas semanas después
 - **Benchmark vs sector** — compara tu engagement contra promedios del nicho arte/lifestyle
 - **Calendario editorial** — visualiza tu cadencia de publicación
+- **Correlación contenido → crecimiento** — qué posts generan nuevos seguidores
+- **Análisis de hashtags por rendimiento** — no los más usados, sino los que mejor funcionan
 - **Renovación automática de tokens** (Instagram y TikTok)
 - **Sincronización automática** 2x/día vía GitHub Actions
 
@@ -27,19 +32,48 @@ mi-panel-redes/
 ├── conexion.py                     # Conexión a MySQL (Hostinger)
 ├── auth_tiktok.py                  # Autorización OAuth TikTok (PKCE)
 ├── extraccion/
-│   ├── instagram.py                # Extractor IG (posts + stories + insights v22.0)
-│   ├── tiktok.py                   # Extractor TT (auto-renovación token)
-│   └── youtube.py                  # Extractor YT (detección Short/Largo)
+│   ├── instagram.py                # Extractor IG (posts + stories + insights + reach)
+│   ├── tiktok.py                   # Extractor TT (auto-renovación token + comentarios)
+│   └── youtube.py                  # Extractor YT (playlistItems + duración + comentarios)
 ├── procesamiento/
-│   └── motor_ia.py                 # Motor Gemini (análisis + ideas + planificador)
+│   └── motor_ia.py                 # Motor Gemini (análisis + ideas + captions + planificador)
+├── panel/
+│   ├── __init__.py                 # Exports del paquete
+│   ├── auth.py                     # Sistema de autenticación
+│   ├── datos.py                    # Carga de datos desde BD
+│   ├── utils.py                    # Funciones auxiliares + estilos CSS
+│   └── objetivos.py                # Sistema de objetivos y proyecciones
+├── alertas/
+│   ├── __init__.py                 # Exports del módulo
+│   ├── email_sender.py             # Envío de emails via Gmail SMTP
+│   ├── detector.py                 # Detección de virales + tokens rotos
+│   └── test_email.py              # Script para probar el envío
+├── utils/
+│   ├── config.py                   # Configuración centralizada (BD → env → secrets)
+│   └── logger.py                   # Sistema de logging estructurado
 ├── .github/workflows/
-│   ├── sincronizar_redes.yml       # Cron 2x/día (extracción de datos)
-│   └── motor_ia_cron.yml           # Cron semanal (extracción + IA)
+│   ├── sincronizar_redes.yml       # Cron 2x/día (extracción + alertas)
+│   └── motor_ia_cron.yml           # Cron 2x/semana (extracción + IA)
 ├── recargas_historico.py           # Script de recarga completa del histórico
-├── tablas.sql                      # Estructura de la base de datos
-├── requirements.txt                # Dependencias Python
+├── tablas.sql                      # Estructura completa de la base de datos
+├── migracion_nuevas_metricas.sql   # Migración: comentarios, alcance, duración
+├── migracion_objetivos.sql         # Migración: tabla de objetivos
+├── requirements.txt                # Dependencias Python (versiones pinadas)
 └── GUIA_CREDENCIALES.md            # Guía para obtener todas las credenciales
 ```
+
+## Métricas capturadas
+
+| Métrica | Instagram | TikTok | YouTube |
+|---|:---:|:---:|:---:|
+| Visualizaciones/Views | ✅ | ✅ | ✅ |
+| Likes | ✅ | ✅ | ✅ |
+| Compartidos/Shares | ✅ | ✅ | — |
+| Guardados/Saves | ✅ | — | — |
+| Comentarios | ✅ | ✅ | ✅ |
+| Alcance (Reach) | ✅ | — | — |
+| Duración del vídeo | — | — | ✅ |
+| Seguidores (histórico diario) | ✅ | ✅ | ✅ |
 
 ## Requisitos
 
@@ -47,6 +81,7 @@ mi-panel-redes/
 - Base de datos MySQL (Hostinger)
 - Cuentas de desarrollador en: Meta, TikTok, Google Cloud
 - API Key de Gemini (Google AI Studio)
+- App Password de Gmail (para alertas por email)
 
 ## Instalación local
 
@@ -72,23 +107,25 @@ Consulta la [Guía completa de credenciales](GUIA_CREDENCIALES.md) para instrucc
 
 | Variable | Fuente | Renovación |
 |---|---|---|
-| `DB_HOST` | Hostinger → hPanel → Bases de datos → MySQL → Host | No caduca |
-| `DB_USER` | Hostinger → hPanel → Bases de datos → Usuario creado | No caduca |
-| `DB_PASSWORD` | Hostinger → hPanel → Bases de datos → Contraseña del usuario | No caduca |
-| `DB_NAME` | Hostinger → hPanel → Bases de datos → Nombre de la BD | No caduca |
-| `INSTAGRAM_TOKEN` | Meta → Graph API Explorer → Generate Access Token (con página seleccionada) → Extender a 60 días | Cada ~50 días (auto-renovable vía API) |
-| `INSTAGRAM_ACCOUNT_ID` | Meta → Graph API Explorer → `me/accounts` → `{page_id}?fields=instagram_business_account` → copiar el `id` | No caduca |
-| `META_CLIENT_ID` | Meta for Developers → Tu app → Configuración → Básica → ID de la aplicación | No caduca |
-| `META_CLIENT_SECRET` | Meta for Developers → Tu app → Configuración → Básica → Clave secreta | No caduca |
-| `TIKTOK_ACCESS_TOKEN` | Ejecutar `python auth_tiktok.py` → se guarda automáticamente | Cada 24h (auto-renovable con refresh token) |
-| `TIKTOK_CLIENT_KEY` | TikTok for Developers → Tu app → Client Key | No caduca |
-| `TIKTOK_CLIENT_SECRET` | TikTok for Developers → Tu app → Client Secret | No caduca |
-| `TIKTOK_REFRESH_TOKEN` | Se genera con `python auth_tiktok.py` → se guarda automáticamente | Cada 365 días (re-ejecutar auth_tiktok.py) |
-| `TIKTOK_REDIRECT_URI` | TikTok for Developers → Tu app → Platform: Web → Redirect URI | No caduca |
-| `YOUTUBE_API_KEY` | Google Cloud Console → APIs y servicios → Credenciales → Clave de API | No caduca |
-| `YOUTUBE_CHANNEL_ID` | YouTube Studio → Configuración → Canal → ID del canal (empieza por `UC...`) | No caduca |
-| `GEMINI_API_KEY` | Google AI Studio (aistudio.google.com/apikey) → Create API Key | No caduca |
-| `PANEL_PASSWORD` | La que tú elijas para proteger el acceso al panel | No caduca |
+| `DB_HOST` | Hostinger → hPanel → Bases de datos | No caduca |
+| `DB_USER` | Hostinger → hPanel → Bases de datos | No caduca |
+| `DB_PASSWORD` | Hostinger → hPanel → Bases de datos | No caduca |
+| `DB_NAME` | Hostinger → hPanel → Bases de datos | No caduca |
+| `INSTAGRAM_TOKEN` | Meta → Graph API Explorer → Extender a 60 días | Auto-renovable (~50 días) |
+| `INSTAGRAM_ACCOUNT_ID` | Meta → Graph API Explorer → `me/accounts` | No caduca |
+| `META_CLIENT_ID` | Meta for Developers → Tu app → Configuración | No caduca |
+| `META_CLIENT_SECRET` | Meta for Developers → Tu app → Configuración | No caduca |
+| `TIKTOK_ACCESS_TOKEN` | `python auth_tiktok.py` → se guarda automáticamente | Auto-renovable (24h) |
+| `TIKTOK_CLIENT_KEY` | TikTok for Developers → Tu app | No caduca |
+| `TIKTOK_CLIENT_SECRET` | TikTok for Developers → Tu app | No caduca |
+| `TIKTOK_REFRESH_TOKEN` | `python auth_tiktok.py` → se guarda automáticamente | 365 días |
+| `YOUTUBE_API_KEY` | Google Cloud Console → Credenciales | No caduca |
+| `YOUTUBE_CHANNEL_ID` | YouTube Studio → Configuración → Canal | No caduca |
+| `GEMINI_API_KEY` | Google AI Studio → Create API Key | No caduca |
+| `GMAIL_APP_PASSWORD` | Google Account → App Passwords | No caduca (mientras 2FA activo) |
+| `GMAIL_REMITENTE` | Email desde el que se envían alertas | No caduca |
+| `GMAIL_DESTINATARIO` | Email que recibe alertas (`itsbgart@gmail.com`) | No caduca |
+| `PANEL_PASSWORD` | La que tú elijas para proteger el acceso | No caduca |
 
 ## Despliegue
 
@@ -101,8 +138,29 @@ Consulta la [Guía completa de credenciales](GUIA_CREDENCIALES.md) para instrucc
 ### GitHub Actions (automatización)
 
 Configura los secrets en el repositorio (Settings → Secrets → Actions) para habilitar:
-- **Sincronización 2x/día** (10:00 y 22:00 hora España)
-- **Motor IA semanal** (lunes 09:00 hora España)
+- **Sincronización 2x/día** (10:00 y 22:00 hora España) + alertas por email
+- **Motor IA 2x/semana** (lunes y jueves 09:00 hora España)
+
+## Sistema de alertas
+
+Se envían emails automáticos a `itsbgart@gmail.com` cuando:
+
+| Alerta | Cuándo se dispara |
+|---|---|
+| 🔥 Post viral | Vistas > media + 2σ en las últimas 48h |
+| 🔑 Token con problemas | Token vacío o inválido detectado |
+
+Para probar las alertas manualmente:
+```bash
+python alertas/test_email.py
+```
+
+## Sistema de objetivos
+
+El panel incluye un widget de objetivos que:
+- Muestra el progreso hacia la meta con barra visual
+- Proyecta cuándo se alcanzará la meta basándose en la tendencia real
+- Permite añadir nuevos objetivos directamente desde el panel
 
 ## Mantenimiento y resolución de problemas
 
@@ -123,11 +181,11 @@ Flujo de renovación automática:
 
 | Situación | Cómo lo detecto | Qué hacer |
 |---|---|---|
-| Token Instagram expirado | El panel muestra 0 datos de IG o el log dice "Error API Meta: token expired" | 1. Ve al Graph API Explorer → genera token nuevo → 2. Actualiza en phpMyAdmin: `UPDATE configuracion SET valor='NUEVO_TOKEN' WHERE clave='INSTAGRAM_TOKEN'` |
-| Refresh token TikTok expirado (>365 días sin sincronizar) | El log dice "No se pudo renovar TikTok" y la renovación falla | 1. Ejecuta `python auth_tiktok.py` → 2. Copia el nuevo token y refresh token → 3. Actualízalos en phpMyAdmin en la tabla `configuracion` |
-| API Key YouTube no funciona | El log dice "API key not valid" | 1. Ve a Google Cloud Console → Credenciales → genera una nueva API Key → 2. Actualiza en phpMyAdmin: `UPDATE configuracion SET valor='AIza...' WHERE clave='YOUTUBE_API_KEY'` |
-| Gemini no responde (429) | El log dice "RESOURCE_EXHAUSTED" | Espera unas horas — es un rate limit temporal del plan gratuito. Se resuelve solo. |
-| La BD no conecta | El panel dice "Error al conectar con la base de datos" | 1. Verifica en Hostinger que MySQL remoto tiene `%` como IP → 2. Verifica que las credenciales de BD son correctas en Streamlit secrets |
+| Token Instagram expirado | Email de alerta 🔑 o panel sin datos IG | Graph API Explorer → genera token nuevo → phpMyAdmin |
+| Refresh token TikTok expirado (>365 días) | Email de alerta 🔑 | Ejecutar `python auth_tiktok.py` |
+| API Key YouTube no funciona | Log dice "API key not valid" | Google Cloud Console → nueva API Key → phpMyAdmin |
+| Gemini no responde (429) | Log dice "RESOURCE_EXHAUSTED" | Esperar unas horas (rate limit temporal) |
+| La BD no conecta | Panel dice "Error al conectar" | Verificar Hostinger MySQL remoto tiene `%` como IP |
 
 ### Dónde están las credenciales
 
@@ -136,36 +194,23 @@ Flujo de renovación automática:
 | Tokens dinámicos (IG, TikTok) | BD → tabla `configuracion` | Auto (scripts) o manual (phpMyAdmin) |
 | Credenciales de BD | GitHub Actions secrets + Streamlit Cloud secrets | Manual en cada plataforma |
 | API Keys fijas (YouTube, Gemini) | BD → tabla `configuracion` | Manual en phpMyAdmin |
+| Config email (Gmail) | BD → tabla `configuracion` + GitHub secret | Manual en phpMyAdmin |
 | Contraseña del panel | Streamlit Cloud secrets | Manual en Streamlit settings |
-
-### Cómo actualizar un token manualmente en phpMyAdmin
-
-1. Entra en https://auth-db1501.hstgr.io (tu phpMyAdmin)
-2. Selecciona la BD `u764199979_rrss_analytics`
-3. Abre la tabla `configuracion`
-4. Busca la fila con la `clave` que quieres cambiar
-5. Haz doble clic en `valor` → pega el nuevo token → guarda
 
 ### Logs para diagnosticar problemas
 
-Los scripts escriben logs en `logs/panel.log` (en ejecución local). Formato:
-```
-[2026-07-16 10:30:45] [instagram] INFO - ✅ Token renovado
-[2026-07-16 10:30:46] [tiktok] WARNING - No se pudo renovar el token
-[2026-07-16 10:31:02] [motor_ia] ERROR - 429 RESOURCE_EXHAUSTED
-```
-
-En GitHub Actions, los logs se ven en la pestaña Actions → selecciona la ejecución → haz clic en el step que falló.
+Los scripts escriben logs en `logs/panel.log` (en ejecución local). En GitHub Actions, los logs se ven en la pestaña Actions → selecciona la ejecución → haz clic en el step que falló.
 
 ## Base de datos
 
 ```sql
 -- Estructura (ver tablas.sql para el detalle completo)
-contenidos            → Catálogo de publicaciones (id, plataforma, título, fecha, url)
-metricas_rendimiento  → Métricas por contenido y día (vistas, likes, compartidos, guardados)
+contenidos            → Catálogo de publicaciones (id, plataforma, título, formato, duración, fecha, url)
+metricas_rendimiento  → Métricas por contenido (vistas, likes, compartidos, guardados, comentarios, alcance)
 insights_ia           → Historial de análisis generados por Gemini
 seguidores_historico  → Evolución diaria de seguidores por plataforma
 configuracion         → Tokens y credenciales que se auto-renuevan
+objetivos             → Metas de crecimiento con fecha límite
 ```
 
 ## Stack tecnológico
@@ -174,5 +219,5 @@ configuracion         → Tokens y credenciales que se auto-renuevan
 - **Backend:** Python + MySQL
 - **IA:** Google Gemini 3.1 Flash Lite
 - **APIs:** Meta Graph API v22.0, TikTok API v2, YouTube Data API v3
+- **Alertas:** Gmail SMTP
 - **Hosting:** Streamlit Cloud (panel) + Hostinger (BD) + GitHub Actions (automatización)
-
