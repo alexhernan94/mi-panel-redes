@@ -35,7 +35,7 @@ def auto_renovar_token_meta():
         print("⚠️ No se puede auto-renovar: faltan META_CLIENT_ID o META_CLIENT_SECRET en .env")
         return False
 
-    url = "https://graph.facebook.com/v19.0/oauth/access_token"
+    url = "https://graph.facebook.com/v22.0/oauth/access_token"
     params = {
         "grant_type": "fb_exchange_token",
         "client_id": client_id,
@@ -73,8 +73,30 @@ def extraer_instagram():
     
     print("Conectando con Instagram (Métricas de Valor)...")
     
+    # --- GUARDAR SEGUIDORES ---
+    try:
+        url_perfil = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}?fields=followers_count&access_token={INSTAGRAM_TOKEN}"
+        r_perfil = requests.get(url_perfil).json()
+        if "followers_count" in r_perfil:
+            from conexion import obtener_conexion as _obtener_conexion
+            _con = _obtener_conexion()
+            if _con:
+                _cur = _con.cursor()
+                _hoy = datetime.now().strftime('%Y-%m-%d')
+                _cur.execute("""
+                    INSERT INTO seguidores_historico (plataforma, seguidores, fecha_registro)
+                    VALUES ('instagram', %s, %s)
+                    ON DUPLICATE KEY UPDATE seguidores=%s
+                """, (r_perfil['followers_count'], _hoy, r_perfil['followers_count']))
+                _con.commit()
+                _cur.close()
+                _con.close()
+                print(f"   👥 Seguidores Instagram: {r_perfil['followers_count']}")
+    except Exception as e:
+        print(f"   ⚠️ No se pudieron guardar seguidores: {e}")
+    
     # --- PUBLICACIONES (Feed + Reels) ---
-    url = f"https://graph.facebook.com/v19.0/{INSTAGRAM_ACCOUNT_ID}/media"
+    url = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}/media"
     
     params = {
         "fields": "id,media_type,caption,timestamp,like_count,comments_count,permalink",
@@ -94,7 +116,7 @@ def extraer_instagram():
     # --- STORIES (últimas 24h activas) ---
     stories = []
     try:
-        url_stories = f"https://graph.facebook.com/v19.0/{INSTAGRAM_ACCOUNT_ID}/stories"
+        url_stories = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}/stories"
         params_stories = {
             "fields": "id,media_type,timestamp,permalink",
             "access_token": INSTAGRAM_TOKEN

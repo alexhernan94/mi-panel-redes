@@ -440,6 +440,140 @@ with tab_general:
             else:
                 st.metric(plat.capitalize(), "—")
 
+    st.markdown("---")
+
+    # --- CRECIMIENTO DE SEGUIDORES ---
+    st.markdown("### 👥 Crecimiento de Seguidores")
+    try:
+        con_seg = obtener_conexion()
+        if con_seg:
+            df_seguidores = pd.read_sql("SELECT plataforma, seguidores, fecha_registro FROM seguidores_historico ORDER BY fecha_registro", con_seg)
+            con_seg.close()
+            
+            if not df_seguidores.empty:
+                df_seguidores['fecha_registro'] = pd.to_datetime(df_seguidores['fecha_registro'])
+                
+                chart_seg = alt.Chart(df_seguidores).mark_line(point=True, strokeWidth=2).encode(
+                    x=alt.X('fecha_registro:T', title='Fecha'),
+                    y=alt.Y('seguidores:Q', title='Seguidores'),
+                    color=alt.Color('plataforma:N', scale=alt.Scale(scheme='set2'), title='Plataforma'),
+                    tooltip=['plataforma', 'fecha_registro', 'seguidores']
+                ).properties(height=250)
+                st.altair_chart(chart_seg, use_container_width=True)
+                
+                # Mostrar último valor y crecimiento
+                cols_seg = st.columns(3)
+                for i, plat in enumerate(['instagram', 'tiktok', 'youtube']):
+                    with cols_seg[i]:
+                        df_plat_seg = df_seguidores[df_seguidores['plataforma'] == plat].sort_values('fecha_registro')
+                        if len(df_plat_seg) >= 1:
+                            ultimo = int(df_plat_seg.iloc[-1]['seguidores'])
+                            emoji = "📸" if plat == "instagram" else ("🎵" if plat == "tiktok" else "📺")
+                            delta_seg = None
+                            if len(df_plat_seg) >= 2:
+                                anterior = int(df_plat_seg.iloc[-2]['seguidores'])
+                                if anterior > 0:
+                                    delta_seg = f"{ultimo - anterior:+d} ({(ultimo-anterior)/anterior*100:+.1f}%)"
+                            st.metric(f"{emoji} {plat.capitalize()}", f"{ultimo:,}".replace(',','.'), delta=delta_seg)
+            else:
+                st.caption("Los datos de seguidores se empezarán a acumular con cada sincronización. Vuelve mañana para ver la evolución.")
+    except Exception as e:
+        st.caption(f"Tabla de seguidores no disponible. Ejecuta `migracion_seguidores.sql` en phpMyAdmin.")
+
+    st.markdown("---")
+
+    # --- CORRELACIÓN CONTENIDO-CRECIMIENTO ---
+    st.markdown("### 📈 Correlación Contenido → Crecimiento")
+    try:
+        if 'df_seguidores' in dir() and not df_seguidores.empty:
+            # Para cada día que publicaste, ver si los seguidores subieron al día siguiente
+            df_pub_dias = df_metricas.copy()
+            df_pub_dias['fecha'] = df_pub_dias['fecha_publicacion'].dt.date
+            pub_por_dia = df_pub_dias.groupby('fecha').agg(
+                posts=('titulo', 'count'),
+                vistas_totales=('visualizaciones', 'sum'),
+                mejor_post=('titulo', 'first')
+            ).reset_index()
+            pub_por_dia['fecha'] = pd.to_datetime(pub_por_dia['fecha'])
+            
+            # Merge con seguidores (buscar crecimiento al día siguiente)
+            df_seg_total = df_seguidores.groupby('fecha_registro')['seguidores'].sum().reset_index()
+            df_seg_total['crecimiento'] = df_seg_total['seguidores'].diff()
+            df_seg_total = df_seg_total.rename(columns={'fecha_registro': 'fecha'})
+            
+            df_correlacion = pub_por_dia.merge(df_seg_total[['fecha', 'crecimiento']], on='fecha', how='inner')
+            
+            if not df_correlacion.empty and df_correlacion['crecimiento'].notna().any():
+                top_crecimiento = df_correlacion[df_correlacion['crecimiento'] > 0].sort_values('crecimiento', ascending=False).head(5)
+                if not top_crecimiento.empty:
+                    st.markdown("**Días con mayor crecimiento de seguidores y qué publicaste:**")
+                    for _, row in top_crecimiento.iterrows():
+                        st.markdown(f"- **{row['fecha'].strftime('%d/%m')}**: +{int(row['crecimiento'])} seguidores — Publicaste {int(row['posts'])} post(s), top: *{row['mejor_post'][:40]}*")
+                else:
+                    st.caption("Aún no hay suficientes datos para correlacionar. Se necesitan varios días de sincronización.")
+            else:
+                st.caption("Se necesitan al menos 2 días de datos de seguidores para calcular correlaciones.")
+        else:
+            st.caption("Sincroniza durante varios días para ver la correlación contenido → crecimiento.")
+    except Exception:
+        st.caption("Los datos de crecimiento se irán acumulando con cada sincronización diaria.")
+
+    st.markdown("---")
+
+    # --- ANÁLISIS DE HASHTAGS POR RENDIMIENTO ---
+    st.markdown("### #️⃣ Hashtags por Rendimiento")
+    st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Hashtags que correlacionan con mayor alcance (no los más usados, sino los que mejor funcionan).</p>", unsafe_allow_html=True)
+    
+    df_hashtags = df_filtrado[df_filtrado['titulo'].str.contains('#', na=False)].copy()
+    
+    if not df_hashtags.empty:
+        # Extraer todos los hashtags y su rendimiento asociado
+        hashtag_rendimiento = {}
+        for _, row in df_hashtags.iterrows():
+            tags = re.findall(r'#(\w+)', str(row['titulo']).lower())
+            for tag in tags:
+                if len(tag) > 3:  # Ignorar hashtags muy cortos
+                    if tag not in hashtag_rendimiento:
+                        hashtag_rendimiento[tag] = {'vistas': [], 'likes': [], 'usos': 0}
+                    hashtag_rendimiento[tag]['vistas'].append(row['visualizaciones'])
+                    hashtag_rendimiento[tag]['likes'].append(row['likes'])
+                    hashtag_rendimiento[tag]['usos'] += 1
+        
+        # Calcular media por hashtag (solo los usados 2+ veces)
+        hashtag_stats = []
+        for tag, data in hashtag_rendimiento.items():
+            if data['usos'] >= 2:
+                hashtag_stats.append({
+                    'hashtag': f"#{tag}",
+                    'usos': data['usos'],
+                    'media_vistas': int(sum(data['vistas']) / len(data['vistas'])),
+                    'media_likes': int(sum(data['likes']) / len(data['likes'])),
+                    'engagement': round(sum(data['likes']) / max(sum(data['vistas']), 1) * 100, 2)
+                })
+        
+        if hashtag_stats:
+            df_hash_stats = pd.DataFrame(hashtag_stats)
+            
+            col_h1, col_h2 = st.columns(2)
+            with col_h1:
+                st.markdown("**🔥 Top hashtags por alcance (vistas)**")
+                top_vistas = df_hash_stats.sort_values('media_vistas', ascending=False).head(8)
+                st.dataframe(
+                    top_vistas[['hashtag', 'usos', 'media_vistas', 'engagement']].rename(columns={'hashtag':'#','usos':'Veces','media_vistas':'Media vistas','engagement':'Eng %'}),
+                    use_container_width=True, hide_index=True
+                )
+            with col_h2:
+                st.markdown("**💎 Top hashtags por engagement**")
+                top_eng = df_hash_stats.sort_values('engagement', ascending=False).head(8)
+                st.dataframe(
+                    top_eng[['hashtag', 'usos', 'media_likes', 'engagement']].rename(columns={'hashtag':'#','usos':'Veces','media_likes':'Media likes','engagement':'Eng %'}),
+                    use_container_width=True, hide_index=True
+                )
+        else:
+            st.caption("No hay hashtags con 2+ usos para analizar su rendimiento.")
+    else:
+        st.caption("No se encontraron publicaciones con hashtags en este periodo.")
+
 
 # ============================================================
 # PESTAÑA INSTAGRAM

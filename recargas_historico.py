@@ -68,7 +68,7 @@ def recarga_instagram():
     # Timestamp Unix del 1 de enero 2025 00:00:00 UTC
     FECHA_DESDE = 1735689600  # 2025-01-01T00:00:00Z
     
-    url = f"https://graph.facebook.com/v19.0/{INSTAGRAM_ACCOUNT_ID}/media"
+    url = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}/media"
     params = {
         "fields": "id,media_type,caption,timestamp,like_count,comments_count,permalink",
         "access_token": INSTAGRAM_TOKEN,
@@ -200,7 +200,7 @@ def recarga_instagram():
     # --- STORIES (últimas 24h activas) ---
     stories_guardadas = 0
     try:
-        url_stories = f"https://graph.facebook.com/v19.0/{INSTAGRAM_ACCOUNT_ID}/stories"
+        url_stories = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}/stories"
         params_stories = {
             "fields": "id,media_type,timestamp,permalink",
             "access_token": INSTAGRAM_TOKEN

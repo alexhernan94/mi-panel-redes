@@ -74,8 +74,29 @@ def extraer_y_guardar_tiktok():
 
     print("Conectando con la API de TikTok...")
 
+    # --- GUARDAR SEGUIDORES ---
+    try:
+        url_user = "https://open.tiktokapis.com/v2/user/info/?fields=follower_count"
+        r_user = requests.get(url_user, headers={"Authorization": f"Bearer {TIKTOK_TOKEN}"}).json()
+        follower_count = r_user.get('data', {}).get('user', {}).get('follower_count')
+        if follower_count is not None:
+            _con = obtener_conexion()
+            if _con:
+                _cur = _con.cursor()
+                _hoy = datetime.now().strftime('%Y-%m-%d')
+                _cur.execute("""
+                    INSERT INTO seguidores_historico (plataforma, seguidores, fecha_registro)
+                    VALUES ('tiktok', %s, %s)
+                    ON DUPLICATE KEY UPDATE seguidores=%s
+                """, (follower_count, _hoy, follower_count))
+                _con.commit()
+                _cur.close()
+                _con.close()
+                print(f"   👥 Seguidores TikTok: {follower_count}")
+    except Exception as e:
+        print(f"   ⚠️ No se pudieron guardar seguidores TikTok: {e}")
+
     # Endpoint oficial de TikTok API v2 para listar vídeos de la cuenta autorizada
-    # En la API v2 de TikTok, los 'fields' deben ir obligatoriamente en la URL
     url = "https://open.tiktokapis.com/v2/video/list/?fields=id,title,create_time,share_url,view_count,like_count,comment_count,share_count"
     
     headers = {

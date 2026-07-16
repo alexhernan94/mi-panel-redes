@@ -37,3 +37,19 @@ CREATE TABLE insights_ia (
     fecha_generacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_fecha_gen (fecha_generacion)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE seguidores_historico (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plataforma ENUM('instagram', 'tiktok', 'youtube') NOT NULL,
+    seguidores INT UNSIGNED NOT NULL DEFAULT 0,
+    fecha_registro DATE NOT NULL,
+    UNIQUE INDEX idx_plat_fecha (plataforma, fecha_registro)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seguidores_historico (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plataforma ENUM('instagram', 'tiktok', 'youtube') NOT NULL,
+    seguidores INT UNSIGNED NOT NULL DEFAULT 0,
+    fecha_registro DATE NOT NULL,
+    UNIQUE INDEX idx_plat_fecha (plataforma, fecha_registro)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
