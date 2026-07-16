@@ -8,15 +8,15 @@ from dotenv import load_dotenv
 # Esto permite que el script encuentre tu archivo conexion.py en la carpeta anterior
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conexion import obtener_conexion
-from utils import get_logger
+from utils import get_logger, obtener_config
 
 logger = get_logger('youtube')
 
 load_dotenv()
 
-# Configurar la conexión con YouTube
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
-YOUTUBE_CHANNEL_ID = os.getenv('YOUTUBE_CHANNEL_ID')
+# Configurar la conexión con YouTube (lee de BD → .env → st.secrets)
+YOUTUBE_API_KEY = obtener_config('YOUTUBE_API_KEY')
+YOUTUBE_CHANNEL_ID = obtener_config('YOUTUBE_CHANNEL_ID')
 
 
 def parsear_duracion_iso(duracion_iso):
