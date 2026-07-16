@@ -325,7 +325,37 @@ with tab_general:
     # Planificador semanal
     if planificador_semanal:
         st.markdown("### 📋 Planificador Semanal")
-        st.markdown(f"<div class='idea-card' style='line-height:1.8;'>{planificador_semanal}</div>", unsafe_allow_html=True)
+        
+        # Separar en líneas y renderizar como lista
+        lineas = [l.strip() for l in planificador_semanal.split('\n') if l.strip()]
+        
+        dias_plan = []
+        justificacion = ""
+        
+        for linea in lineas:
+            if linea.startswith('- ') or linea.startswith('• '):
+                dias_plan.append(linea.lstrip('- •').strip())
+            elif linea.lower().startswith('justific'):
+                justificacion = linea.split(':', 1)[1].strip() if ':' in linea else linea
+            elif not dias_plan:
+                # Puede ser texto antes de la lista
+                continue
+            else:
+                # Texto después de la lista = justificación
+                justificacion += " " + linea
+        
+        if dias_plan:
+            emojis_dias = {'lunes':'🟡','martes':'🔵','miércoles':'🟢','jueves':'🟣','viernes':'🔴','sábado':'🟠','domingo':'⚪'}
+            for dia_linea in dias_plan:
+                dia_nombre = dia_linea.split(':')[0].strip().lower() if ':' in dia_linea else ''
+                emoji = emojis_dias.get(dia_nombre, '📌')
+                st.markdown(f"{emoji} **{dia_linea}**")
+            
+            if justificacion.strip():
+                st.caption(f"💡 {justificacion.strip()}")
+        else:
+            st.markdown(planificador_semanal)
+        
         st.markdown("---")
 
     # Mejor hora por plataforma

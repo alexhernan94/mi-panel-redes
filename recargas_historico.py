@@ -145,21 +145,32 @@ def recarga_instagram():
             vistas = likes * 4  # Estimación por defecto
             
             try:
-                url_insights = f"https://graph.facebook.com/v19.0/{id_ig}/insights"
-                metricas_buscar = "saved,plays" if estilo_visual == "Reel" else "saved,impressions"
+                url_insights = f"https://graph.facebook.com/v22.0/{id_ig}/insights"
+                if estilo_visual == "Reel":
+                    metricas_buscar = "views,saved,shares"
+                else:
+                    metricas_buscar = "saved,shares"
                 res_ins = requests.get(url_insights, params={"metric": metricas_buscar, "access_token": INSTAGRAM_TOKEN})
                 data_ins = res_ins.json()
+                
+                if "error" in data_ins:
+                    # Fallback: solo saved
+                    res_ins2 = requests.get(url_insights, params={"metric": "saved", "access_token": INSTAGRAM_TOKEN})
+                    data_ins = res_ins2.json()
                 
                 if "data" in data_ins:
                     for metrica in data_ins["data"]:
                         if metrica["name"] == "saved":
                             guardados = metrica["values"][0]["value"]
-                        if metrica["name"] in ["plays", "impressions"]:
+                        elif metrica["name"] == "shares":
+                            compartidos = metrica["values"][0]["value"]
+                        elif metrica["name"] == "views":
                             vistas = metrica["values"][0]["value"]
             except Exception:
-                pass  # Insights no disponibles para este post (normal en posts muy antiguos)
+                pass  # Insights no disponibles para este post
             
-            compartidos = int((comentarios + guardados) * 0.8)
+            if compartidos == 0:
+                compartidos = int((comentarios + guardados) * 0.8)
             
             # Guardar contenido
             sql_contenido = """
