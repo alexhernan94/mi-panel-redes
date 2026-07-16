@@ -102,7 +102,7 @@ def extraer_instagram():
     url = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}/media"
     
     params = {
-        "fields": "id,media_type,caption,timestamp,like_count,comments_count,permalink",
+        "fields": "id,media_type,caption,timestamp,like_count,comments_count,permalink,media_url",
         "access_token": INSTAGRAM_TOKEN,
         "limit": 10
     }
@@ -153,17 +153,18 @@ def extraer_instagram():
             # --- SECCIÓN EXTRA DE MÉTRICAS DE VALOR (Insights específicos) ---
             url_insights = f"https://graph.facebook.com/v22.0/{id_ig}/insights"
             
-            # v22.0: para Reels usar "views,saved,shares", para fotos/carruseles "saved,shares"
+            # v22.0: para Reels usar "views,saved,shares,reach", para fotos/carruseles "saved,shares,reach"
             if estilo_visual == "Reel":
-                metricas_buscar = "views,saved,shares"
+                metricas_buscar = "views,saved,shares,reach"
             else:
-                metricas_buscar = "saved,shares"
+                metricas_buscar = "saved,shares,reach"
             
             res_ins = requests.get(url_insights, params={"metric": metricas_buscar, "access_token": INSTAGRAM_TOKEN})
             data_ins = res_ins.json()
             
             guardados = 0
             compartidos_real = 0
+            alcance = 0
             vistas = likes * 4  # Valor por defecto si no hay datos
             
             if "error" in data_ins:
@@ -179,10 +180,15 @@ def extraer_instagram():
                         compartidos_real = metrica["values"][0]["value"]
                     elif metrica["name"] == "views":
                         vistas = metrica["values"][0]["value"]
+                    elif metrica["name"] == "reach":
+                        alcance = metrica["values"][0]["value"]
+            
+            # Comentarios (ya viene en la respuesta principal)
+            comentarios = pub.get("comments_count", 0)
             
             # Si no hay compartidos reales de la API, estimar
             if compartidos_real == 0:
-                compartidos_real = int((pub.get("comments_count", 0) + guardados) * 0.8)
+                compartidos_real = int((comentarios + guardados) * 0.8)
 
             # URL del post
             url_post = pub.get("permalink", "")
@@ -195,14 +201,14 @@ def extraer_instagram():
             """
             cursor.execute(sql_contenido, (id_ig, titulo, estilo_visual, fecha_publicacion, url_post, titulo, estilo_visual, url_post))
             
-            # 2. Guardar métricas
+            # 2. Guardar métricas (con comentarios y alcance)
             fecha_registro = fecha_publicacion.split(" ")[0]
             sql_metrica = """
-                INSERT INTO metricas_rendimiento (id_contenido, fecha_registro, visualizaciones, likes, compartidos, guardados)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s, compartidos=%s, guardados=%s
+                INSERT INTO metricas_rendimiento (id_contenido, fecha_registro, visualizaciones, likes, compartidos, guardados, comentarios, alcance)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s, compartidos=%s, guardados=%s, comentarios=%s, alcance=%s
             """
-            cursor.execute(sql_metrica, (id_ig, fecha_registro, vistas, likes, compartidos_real, guardados, vistas, likes, compartidos_real, guardados))
+            cursor.execute(sql_metrica, (id_ig, fecha_registro, vistas, likes, compartidos_real, guardados, comentarios, alcance, vistas, likes, compartidos_real, guardados, comentarios, alcance))
         
         # --- Guardar stories con insights completos ---
         for story in stories:

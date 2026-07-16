@@ -137,6 +137,7 @@ def extraer_y_guardar_tiktok():
             vistas = video.get('view_count', 0)
             likes = video.get('like_count', 0)
             compartidos = video.get('share_count', 0)
+            comentarios = video.get('comment_count', 0)
 
             # 1. Guardar en el catálogo fijo (contenidos)
             sql_contenido = """
@@ -151,11 +152,11 @@ def extraer_y_guardar_tiktok():
             fecha_registro = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
             sql_metricas = """
                 INSERT INTO metricas_rendimiento 
-                (id_contenido, fecha_registro, visualizaciones, likes, compartidos) 
-                VALUES (%s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s, compartidos=%s
+                (id_contenido, fecha_registro, visualizaciones, likes, compartidos, comentarios) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s, compartidos=%s, comentarios=%s
             """
-            cursor.execute(sql_metricas, (id_video, fecha_registro, vistas, likes, compartidos, vistas, likes, compartidos))
+            cursor.execute(sql_metricas, (id_video, fecha_registro, vistas, likes, compartidos, comentarios, vistas, likes, compartidos, comentarios))
             
             print(f"Guardado en Hostinger: {titulo} ({vistas} vistas)")
 

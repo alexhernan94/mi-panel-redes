@@ -14,6 +14,25 @@ DIAS_ES = {
     'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
 }
 
+ESTILO_EDITORIAL = """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
+    .stApp { background-color: #FDFBF7 !important; color: #4A453F !important; font-family: 'Montserrat', sans-serif !important; }
+    h1, h2, h3 { font-family: 'Lora', serif !important; color: #5C554B !important; font-weight: 400 !important; }
+    [data-testid="stMetric"] { background-color: #FFFFFF; border: 1px solid #E8E3DA; padding: 1.5rem; border-radius: 4px; box-shadow: 0 4px 12px rgba(92, 85, 75, 0.02); }
+    [data-testid="stMetricValue"] { font-family: 'Lora', serif !important; color: #7B7163 !important; font-size: 2.3rem !important; }
+    [data-testid="stMetricLabel"] { font-family: 'Montserrat', sans-serif !important; text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.7rem !important; color: #A39B8F !important; }
+    .idea-card { background-color: #F4F1EA; border: 1px solid #E8E3DA; padding: 1.2rem; border-radius: 4px; margin-top: 1rem; }
+    .stTabs [data-baseweb="tab-list"] { gap: 2.5rem; border-bottom: 1px solid #E8E3DA; }
+    .stTabs [data-baseweb="tab"] { background-color: transparent !important; color: #A39B8F !important; font-family: 'Montserrat', sans-serif; text-transform: uppercase; font-size: 0.75rem; font-weight: 600; letter-spacing: 1px; padding-bottom: 0.8rem; }
+    .stTabs [aria-selected="true"] { border-bottom: 2px solid #7B7163 !important; color: #5C554B !important; }
+    .badge-largo { background-color: #5C554B; color: #FFFFFF; padding: 3px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; margin-right: 8px; }
+    .badge-corto { background-color: #8C8273; color: #FFFFFF; padding: 3px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; margin-right: 8px; }
+    .badge-foto { background-color: #D1C8BA; color: #4A453F; padding: 3px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; margin-right: 8px; }
+    .badge-keyword { background-color: #FFFFFF; color: #7B7163; border: 1px solid #D1C8BA; padding: 4px 12px; border-radius: 16px; font-size: 0.75rem; font-weight: 500; margin: 0 5px 5px 0; display: inline-block; }
+</style>
+"""
+
 
 def renderizar_etiquetas_visuales(texto):
     """Convierte etiquetas [VIDEO LARGO] etc en badges HTML."""

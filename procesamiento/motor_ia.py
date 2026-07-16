@@ -270,6 +270,21 @@ Propón un calendario semanal concreto basado en los datos de rendimiento por d�
 - Domingo: (formato + plataforma + concepto breve)
 
 Justifica brevemente por qué ese día va ese formato (basado en las métricas reales).
+
+[CAPTIONS]
+Genera 5 captions listos para copiar y pegar, optimizados para engagement (guardados + compartidos). Cada caption debe:
+- Tener un gancho en la primera línea (lo que se ve antes del "más...")
+- Incluir una llamada a la acción clara (guardar, compartir, comentar)
+- Usar el tono de la artista (cercano, calmado, inspirador)
+- Incluir 3-5 hashtags estratégicos del nicho arte/slow living
+- Indicar para qué plataforma y formato es
+
+Estructura:
+1. [PLATAFORMA - FORMATO] Caption completo listo para usar
+2. [PLATAFORMA - FORMATO] Caption completo listo para usar
+3. [PLATAFORMA - FORMATO] Caption completo listo para usar
+4. [PLATAFORMA - FORMATO] Caption completo listo para usar
+5. [PLATAFORMA - FORMATO] Caption completo listo para usar
 """
 
 
@@ -328,7 +343,7 @@ def analizar_y_generar_ideas():
             config=types.GenerateContentConfig(
                 temperature=0.9,
                 top_p=0.95,
-                max_output_tokens=4000,
+                max_output_tokens=5500,
             ),
         )
         

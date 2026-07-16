@@ -5,224 +5,50 @@ import warnings
 import re
 import sys
 import os
-from collections import Counter
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-from conexion import obtener_conexion
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from conexion import obtener_conexion
 from procesamiento.motor_ia import analizar_y_generar_ideas
 from extraccion.instagram import extraer_instagram
 from extraccion.tiktok import extraer_y_guardar_tiktok
 from extraccion.youtube import extraer_youtube
+from panel import (
+    verificar_contrasena,
+    cargar_datos_panel,
+    renderizar_etiquetas_visuales,
+    extraer_palabras_exito,
+    calcular_delta,
+    renderizar_kpis,
+    renderizar_mejor_hora,
+    renderizar_tabla_contenidos,
+    TZ_MADRID,
+    DIAS_ES,
+    ESTILO_EDITORIAL,
+)
+from panel.objetivos import renderizar_objetivos
 
 warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Analítica | itsbgart", page_icon="✨", layout="wide")
 
-# --- SISTEMA DE AUTENTICACIÓN ---
-def verificar_contrasena():
-    if "autenticado" not in st.session_state:
-        st.session_state["autenticado"] = False
-    if st.session_state["autenticado"]:
-        return True
-
-    # Leer la contraseña desde st.secrets o desde .env
-    try:
-        clave_correcta = st.secrets["PANEL_PASSWORD"]
-    except Exception:
-        clave_correcta = os.getenv("PANEL_PASSWORD")
-    
-    # Si no hay contraseña configurada, dejar pasar (modo desarrollo local)
-    if not clave_correcta:
-        return True
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col_logo, col_login, col_espacio = st.columns([1, 2, 1])
-    with col_login:
-        st.markdown("<h2 style='text-align: center; font-family: Lora;'>itsbgart</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 0.8rem; color: #A39B8F; letter-spacing:1px;'>CUADRO DE MANDOS PRIVADO</p>", unsafe_allow_html=True)
-        clave_introducida = st.text_input("Introduce la clave de acceso", type="password", placeholder="••••••••")
-        if st.button("Entrar al Panel", use_container_width=True):
-            if clave_introducida == clave_correcta:
-                st.session_state["autenticado"] = True
-                st.rerun()
-            else:
-                st.error("Contraseña incorrecta. Acceso denegado.")
-    return False
-
+# --- AUTENTICACIÓN ---
 if not verificar_contrasena():
     st.stop()
 
 # --- ESTILOS ---
-estilo_editorial = """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
-    .stApp { background-color: #FDFBF7 !important; color: #4A453F !important; font-family: 'Montserrat', sans-serif !important; }
-    h1, h2, h3 { font-family: 'Lora', serif !important; color: #5C554B !important; font-weight: 400 !important; }
-    [data-testid="stMetric"] { background-color: #FFFFFF; border: 1px solid #E8E3DA; padding: 1.5rem; border-radius: 4px; box-shadow: 0 4px 12px rgba(92, 85, 75, 0.02); }
-    [data-testid="stMetricValue"] { font-family: 'Lora', serif !important; color: #7B7163 !important; font-size: 2.3rem !important; }
-    [data-testid="stMetricLabel"] { font-family: 'Montserrat', sans-serif !important; text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.7rem !important; color: #A39B8F !important; }
-    .idea-card { background-color: #F4F1EA; border: 1px solid #E8E3DA; padding: 1.2rem; border-radius: 4px; margin-top: 1rem; }
-    .stTabs [data-baseweb="tab-list"] { gap: 2.5rem; border-bottom: 1px solid #E8E3DA; }
-    .stTabs [data-baseweb="tab"] { background-color: transparent !important; color: #A39B8F !important; font-family: 'Montserrat', sans-serif; text-transform: uppercase; font-size: 0.75rem; font-weight: 600; letter-spacing: 1px; padding-bottom: 0.8rem; }
-    .stTabs [aria-selected="true"] { border-bottom: 2px solid #7B7163 !important; color: #5C554B !important; }
-    .badge-largo { background-color: #5C554B; color: #FFFFFF; padding: 3px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; margin-right: 8px; }
-    .badge-corto { background-color: #8C8273; color: #FFFFFF; padding: 3px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; margin-right: 8px; }
-    .badge-foto { background-color: #D1C8BA; color: #4A453F; padding: 3px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; margin-right: 8px; }
-    .badge-keyword { background-color: #FFFFFF; color: #7B7163; border: 1px solid #D1C8BA; padding: 4px 12px; border-radius: 16px; font-size: 0.75rem; font-weight: 500; margin: 0 5px 5px 0; display: inline-block; }
-</style>
-"""
-st.markdown(estilo_editorial, unsafe_allow_html=True)
+st.markdown(ESTILO_EDITORIAL, unsafe_allow_html=True)
 
 # --- HEADER ---
 st.markdown("<h1 style='text-align: left;'>itsbgart <span style='font-family: Montserrat; font-size: 1.3rem; color: #A39B8F; font-weight:300; letter-spacing:1px;'> | CUADRO DE MANDOS</span></h1>", unsafe_allow_html=True)
 
 # --- CARGA DE DATOS ---
-@st.cache_data(ttl=3600)
-def cargar_datos_panel():
-    conexion = obtener_conexion()
-    if conexion:
-        query_metricas = """
-            SELECT c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, c.url,
-                   MAX(m.visualizaciones) as visualizaciones, MAX(m.likes) as likes,
-                   MAX(m.compartidos) as compartidos, MAX(m.guardados) as guardados
-            FROM contenidos c
-            JOIN metricas_rendimiento m ON c.id_contenido = m.id_contenido
-            GROUP BY c.id_contenido, c.plataforma, c.estilo_visual, c.titulo, c.fecha_publicacion, c.url
-        """
-        df_m = pd.read_sql(query_metricas, conexion)
-        query_ia = "SELECT tendencias_actuales, analisis_rendimiento, ideas_contenido, fecha_generacion FROM insights_ia ORDER BY id_insight DESC LIMIT 10"
-        df_i = pd.read_sql(query_ia, conexion)
-        conexion.close()
-        return df_m, df_i
-    return pd.DataFrame(), pd.DataFrame()
-
 df_metricas, df_ia = cargar_datos_panel()
 
 if df_metricas.empty:
     st.error("Error al conectar con la base de datos o sin datos disponibles.")
     st.stop()
-
-# --- FUNCIONES AUXILIARES ---
-TZ_MADRID = ZoneInfo("Europe/Madrid")
-DIAS_ES = {'Monday':'Lunes','Tuesday':'Martes','Wednesday':'Miércoles','Thursday':'Jueves','Friday':'Viernes','Saturday':'Sábado','Sunday':'Domingo'}
-
-def renderizar_etiquetas_visuales(texto):
-    texto = texto.replace("**[VIDEO LARGO]**", "[VIDEO LARGO]").replace("**[SHORT]**", "[SHORT]")
-    texto = texto.replace("**[TIKTOK VERTICAL]**", "[TIKTOK VERTICAL]").replace("**[CARRUSEL]**", "[CARRUSEL]")
-    texto = texto.replace("**[REEL]**", "[REEL]").replace("**[STORY]**", "[STORY]")
-    texto = texto.replace("[VIDEO LARGO]", "\n\n<span class='badge-largo'>▶ VÍDEO LARGO</span>")
-    texto = texto.replace("[SHORT]", "\n\n<span class='badge-corto'>📱 SHORT</span>")
-    texto = texto.replace("[TIKTOK VERTICAL]", "\n\n<span class='badge-corto'>📱 VERTICAL</span>")
-    texto = texto.replace("[REEL]", "\n\n<span class='badge-corto'>🎬 REEL</span>")
-    texto = texto.replace("[STORY]", "\n\n<span class='badge-foto'>🤳 STORY</span>")
-    texto = texto.replace("[CARRUSEL]", "\n\n<span class='badge-foto'>🖼️ CARRUSEL</span>")
-    texto = texto.replace("\n- ", "\n\n- ").replace("\n* ", "\n\n- ")
-    return texto
-
-
-def extraer_palabras_exito(df, top_n=5, modo='texto'):
-    """Extrae palabras clave de publicaciones exitosas con filtrado agresivo."""
-    if df.empty: return []
-    media_vistas = df['visualizaciones'].mean()
-    df_exito = df[df['visualizaciones'] >= media_vistas]
-    if len(df_exito) < 3: 
-        df_exito = df
-    texto_completo = " ".join(df_exito['titulo'].dropna().tolist()).lower()
-
-    if modo == 'hashtags':
-        palabras = re.findall(r'#\w+', texto_completo)
-        palabras = [p.replace('#', '') for p in palabras]
-        basura = {"art","arte","artist","artista","illustration","ilustracion","drawing","dibujo",
-                  "painting","pintura","creative","creativo","love","instagood","photooftheday",
-                  "follow","like","reels","tiktok","viral","fyp","parati","foryou","explore"}
-        palabras = [p for p in palabras if p not in basura and len(p) > 3]
-    else:
-        stop_words = {"para","como","cómo","este","esta","estos","estas","esos","esas","pero","porque",
-                      "cuando","desde","hasta","sobre","también","solo","todo","nada","mucho","poco",
-                      "algo","otro","otra","otros","aquí","ahí","donde","quien","cada","hacer","haciendo",
-                      "hecho","siendo","tener","tiene","vamos","saber","poder","querer","decir",
-                      "subiendo","subido","publicando","compartiendo","hoy","día","días","vez","veces",
-                      "semana","hora","rato","mañana","tarde","noche","ahora","siempre","nunca",
-                      "enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre",
-                      "octubre","noviembre","diciembre","vlog","video","vídeo","post","story","reel",
-                      "foto","clip","parte","nuevo","nueva","bueno","buena","mejor","peor","gran",
-                      "grande","pequeño","primer","primera","instagram","tiktok","youtube","shorts",
-                      "coche","camino","casa","cosa","gente","mundo","vida","aunque","mientras",
-                      "entonces","después","antes"}
-        palabras_raw = re.findall(r'\b[a-záéíóúñü]{4,}\b', texto_completo)
-        palabras = [p for p in palabras_raw if p not in stop_words]
-
-    contador = Counter(palabras)
-    return [palabra for palabra, frec in contador.most_common(top_n) if frec >= 2]
-
-
-def calcular_delta(df_all, metrica, dias_actual=7):
-    """Calcula el delta porcentual entre periodo actual y anterior."""
-    hoy = datetime.now()
-    actual = df_all[df_all['fecha_publicacion'] >= hoy - timedelta(days=dias_actual)]
-    anterior = df_all[(df_all['fecha_publicacion'] >= hoy - timedelta(days=dias_actual*2)) & (df_all['fecha_publicacion'] < hoy - timedelta(days=dias_actual))]
-    if actual.empty or anterior.empty:
-        return None
-    val_actual = actual[metrica].sum()
-    val_anterior = anterior[metrica].sum()
-    if val_anterior == 0:
-        return None
-    return f"{((val_actual - val_anterior) / val_anterior * 100):+.0f}%"
-
-
-def renderizar_kpis(df, df_all):
-    """Renderiza los 4 KPIs principales con deltas."""
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Exposición (Vistas)", f"{df['visualizaciones'].sum():,}".replace(',','.'), delta=calcular_delta(df_all, 'visualizaciones'))
-    col2.metric("Interacciones (Likes)", f"{df['likes'].sum():,}".replace(',','.'), delta=calcular_delta(df_all, 'likes'))
-    col3.metric("Obras en Periodo", len(df['titulo'].unique()))
-    eng = (df['likes'] / df['visualizaciones'].replace(0, 1) * 100).mean()
-    col4.metric("Engagement Promedio", f"{eng:.2f}%")
-
-
-def renderizar_mejor_hora(df, plataforma_nombre):
-    """Muestra la mejor hora de publicación para una plataforma."""
-    if len(df) < 3:
-        st.caption("Pocos datos para analizar la mejor hora.")
-        return
-    df_h = df.copy()
-    df_h['hora'] = df_h['fecha_publicacion'].dt.tz_localize('UTC').dt.tz_convert(TZ_MADRID).dt.hour
-    df_h['dia'] = df_h['fecha_publicacion'].dt.day_name()
-    eng_hora = df_h.groupby('hora')[['engagement_pct']].mean().reset_index()
-    
-    if eng_hora.empty:
-        return
-    
-    mejor_h = int(eng_hora.loc[eng_hora['engagement_pct'].idxmax(), 'hora'])
-    eng_dia = df_h.groupby('dia')['engagement_pct'].mean()
-    mejor_dia = DIAS_ES.get(eng_dia.idxmax(), eng_dia.idxmax()) if not eng_dia.empty else "—"
-    
-    col_g, col_r = st.columns([3, 1])
-    with col_g:
-        grafico = alt.Chart(eng_hora).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-            x=alt.X('hora:O', title='Hora (Madrid)'),
-            y=alt.Y('engagement_pct:Q', title='Engagement %'),
-            color=alt.condition(alt.datum.hora == mejor_h, alt.value('#5C554B'), alt.value('#D1C8BA')),
-            tooltip=['hora', alt.Tooltip('engagement_pct:Q', format='.2f')]
-        ).properties(height=200)
-        st.altair_chart(grafico, use_container_width=True)
-    with col_r:
-        st.markdown(f"⭐ **Mejor hora:** {mejor_h:02d}:00")
-        st.markdown(f"📅 **Mejor día:** {mejor_dia}")
-
-
-def renderizar_tabla_contenidos(df):
-    """Muestra la tabla de contenidos con enlaces."""
-    df_tabla = df[['titulo', 'estilo_visual', 'fecha_publicacion', 'visualizaciones', 'likes', 'url']].copy()
-    df_tabla['fecha_publicacion'] = df_tabla['fecha_publicacion'].dt.strftime('%Y-%m-%d')
-    st.dataframe(
-        df_tabla.rename(columns={'titulo':'Obra','estilo_visual':'Formato','fecha_publicacion':'Fecha','visualizaciones':'👁️','likes':'❤️'}),
-        column_config={"url": st.column_config.LinkColumn("🔗", display_text="Ver")},
-        use_container_width=True, hide_index=True
-    )
-
 
 # --- PREPARACIÓN DE DATOS ---
 df_metricas['visualizaciones'] = df_metricas['visualizaciones'].fillna(0).astype(int)
@@ -260,6 +86,7 @@ if df_filtrado.empty:
 # --- PARSEO IA ---
 ideas_yt, ideas_tt, ideas_ig = "Generando ideas...", "Generando ideas...", "Generando ideas..."
 planificador_semanal = ""
+captions_ia = ""
 if not df_ia.empty:
     ideas_raw = df_ia.iloc[0].get('ideas_contenido', '')
     match_yt = re.search(r'\[YOUTUBE\](.*?)\[TIKTOK\]', str(ideas_raw), re.DOTALL)
@@ -269,7 +96,12 @@ if not df_ia.empty:
     if match_tt: ideas_tt = match_tt.group(1).strip()
     if match_ig: ideas_ig = match_ig.group(1).strip()
     if '[PLANIFICADOR SEMANAL]' in str(ideas_raw):
-        planificador_semanal = str(ideas_raw).split('[PLANIFICADOR SEMANAL]')[1].strip()
+        parte_plan = str(ideas_raw).split('[PLANIFICADOR SEMANAL]')[1]
+        if '[CAPTIONS]' in parte_plan:
+            planificador_semanal = parte_plan.split('[CAPTIONS]')[0].strip()
+            captions_ia = parte_plan.split('[CAPTIONS]')[1].strip()
+        else:
+            planificador_semanal = parte_plan.strip()
 
 # --- PESTAÑAS PRINCIPALES ---
 tab_general, tab_ig, tab_tt, tab_yt = st.tabs(["📊 General", "📸 Instagram", "🎵 TikTok", "📺 YouTube"])
@@ -325,38 +157,63 @@ with tab_general:
     # Planificador semanal
     if planificador_semanal:
         st.markdown("### 📋 Planificador Semanal")
-        
-        # Separar en líneas y renderizar como lista
         lineas = [l.strip() for l in planificador_semanal.split('\n') if l.strip()]
-        
         dias_plan = []
         justificacion = ""
-        
         for linea in lineas:
             if linea.startswith('- ') or linea.startswith('• '):
                 dias_plan.append(linea.lstrip('- •').strip())
             elif linea.lower().startswith('justific'):
                 justificacion = linea.split(':', 1)[1].strip() if ':' in linea else linea
             elif not dias_plan:
-                # Puede ser texto antes de la lista
                 continue
             else:
-                # Texto después de la lista = justificación
                 justificacion += " " + linea
-        
         if dias_plan:
             emojis_dias = {'lunes':'🟡','martes':'🔵','miércoles':'🟢','jueves':'🟣','viernes':'🔴','sábado':'🟠','domingo':'⚪'}
             for dia_linea in dias_plan:
                 dia_nombre = dia_linea.split(':')[0].strip().lower() if ':' in dia_linea else ''
                 emoji = emojis_dias.get(dia_nombre, '📌')
                 st.markdown(f"{emoji} **{dia_linea}**")
-            
             if justificacion.strip():
                 st.caption(f"💡 {justificacion.strip()}")
         else:
             st.markdown(planificador_semanal)
-        
         st.markdown("---")
+
+    # Captions generados por IA
+    if captions_ia:
+        st.markdown("### ✍️ Captions Listos para Usar")
+        st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Generados por IA, optimizados para engagement. Copia y pega.</p>", unsafe_allow_html=True)
+        captions_lineas = captions_ia.split('\n')
+        caption_actual = ""
+        for linea in captions_lineas:
+            linea = linea.strip()
+            if not linea:
+                continue
+            if linea[0].isdigit() and '.' in linea[:3]:
+                if caption_actual:
+                    st.code(caption_actual.strip(), language=None)
+                caption_actual = linea.split('.', 1)[1].strip() + "\n"
+            else:
+                caption_actual += linea + "\n"
+        if caption_actual:
+            st.code(caption_actual.strip(), language=None)
+        st.markdown("---")
+
+    # Objetivos de crecimiento
+    try:
+        con_obj = obtener_conexion()
+        if con_obj:
+            df_seg_obj = pd.read_sql("SELECT plataforma, seguidores, fecha_registro FROM seguidores_historico ORDER BY fecha_registro", con_obj)
+            con_obj.close()
+            df_seg_obj['fecha_registro'] = pd.to_datetime(df_seg_obj['fecha_registro'])
+            renderizar_objetivos(df_seg_obj)
+        else:
+            renderizar_objetivos(pd.DataFrame())
+    except Exception:
+        st.caption("Tabla de objetivos no disponible. Ejecuta `migracion_objetivos.sql` en phpMyAdmin.")
+    st.markdown("---")
 
     # Mejor hora por plataforma
     st.markdown("### 🕐 Mejor Hora para Publicar")
@@ -442,17 +299,17 @@ with tab_general:
 
     st.markdown("---")
 
-    # --- CRECIMIENTO DE SEGUIDORES ---
+    # Crecimiento de seguidores
     st.markdown("### 👥 Crecimiento de Seguidores")
     try:
         con_seg = obtener_conexion()
         if con_seg:
             df_seguidores = pd.read_sql("SELECT plataforma, seguidores, fecha_registro FROM seguidores_historico ORDER BY fecha_registro", con_seg)
             con_seg.close()
-            
+
             if not df_seguidores.empty:
                 df_seguidores['fecha_registro'] = pd.to_datetime(df_seguidores['fecha_registro'])
-                
+
                 chart_seg = alt.Chart(df_seguidores).mark_line(point=True, strokeWidth=2).encode(
                     x=alt.X('fecha_registro:T', title='Fecha'),
                     y=alt.Y('seguidores:Q', title='Seguidores'),
@@ -460,8 +317,7 @@ with tab_general:
                     tooltip=['plataforma', 'fecha_registro', 'seguidores']
                 ).properties(height=250)
                 st.altair_chart(chart_seg, use_container_width=True)
-                
-                # Mostrar último valor y crecimiento
+
                 cols_seg = st.columns(3)
                 for i, plat in enumerate(['instagram', 'tiktok', 'youtube']):
                     with cols_seg[i]:
@@ -477,16 +333,15 @@ with tab_general:
                             st.metric(f"{emoji} {plat.capitalize()}", f"{ultimo:,}".replace(',','.'), delta=delta_seg)
             else:
                 st.caption("Los datos de seguidores se empezarán a acumular con cada sincronización. Vuelve mañana para ver la evolución.")
-    except Exception as e:
-        st.caption(f"Tabla de seguidores no disponible. Ejecuta `migracion_seguidores.sql` en phpMyAdmin.")
+    except Exception:
+        st.caption("Tabla de seguidores no disponible. Ejecuta `migracion_seguidores.sql` en phpMyAdmin.")
 
     st.markdown("---")
 
-    # --- CORRELACIÓN CONTENIDO-CRECIMIENTO ---
+    # Correlación contenido-crecimiento
     st.markdown("### 📈 Correlación Contenido → Crecimiento")
     try:
         if 'df_seguidores' in dir() and not df_seguidores.empty:
-            # Para cada día que publicaste, ver si los seguidores subieron al día siguiente
             df_pub_dias = df_metricas.copy()
             df_pub_dias['fecha'] = df_pub_dias['fecha_publicacion'].dt.date
             pub_por_dia = df_pub_dias.groupby('fecha').agg(
@@ -495,14 +350,13 @@ with tab_general:
                 mejor_post=('titulo', 'first')
             ).reset_index()
             pub_por_dia['fecha'] = pd.to_datetime(pub_por_dia['fecha'])
-            
-            # Merge con seguidores (buscar crecimiento al día siguiente)
+
             df_seg_total = df_seguidores.groupby('fecha_registro')['seguidores'].sum().reset_index()
             df_seg_total['crecimiento'] = df_seg_total['seguidores'].diff()
             df_seg_total = df_seg_total.rename(columns={'fecha_registro': 'fecha'})
-            
+
             df_correlacion = pub_por_dia.merge(df_seg_total[['fecha', 'crecimiento']], on='fecha', how='inner')
-            
+
             if not df_correlacion.empty and df_correlacion['crecimiento'].notna().any():
                 top_crecimiento = df_correlacion[df_correlacion['crecimiento'] > 0].sort_values('crecimiento', ascending=False).head(5)
                 if not top_crecimiento.empty:
@@ -520,26 +374,24 @@ with tab_general:
 
     st.markdown("---")
 
-    # --- ANÁLISIS DE HASHTAGS POR RENDIMIENTO ---
+    # Análisis de hashtags por rendimiento
     st.markdown("### #️⃣ Hashtags por Rendimiento")
     st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Hashtags que correlacionan con mayor alcance (no los más usados, sino los que mejor funcionan).</p>", unsafe_allow_html=True)
-    
+
     df_hashtags = df_filtrado[df_filtrado['titulo'].str.contains('#', na=False)].copy()
-    
+
     if not df_hashtags.empty:
-        # Extraer todos los hashtags y su rendimiento asociado
         hashtag_rendimiento = {}
         for _, row in df_hashtags.iterrows():
             tags = re.findall(r'#(\w+)', str(row['titulo']).lower())
             for tag in tags:
-                if len(tag) > 3:  # Ignorar hashtags muy cortos
+                if len(tag) > 3:
                     if tag not in hashtag_rendimiento:
                         hashtag_rendimiento[tag] = {'vistas': [], 'likes': [], 'usos': 0}
                     hashtag_rendimiento[tag]['vistas'].append(row['visualizaciones'])
                     hashtag_rendimiento[tag]['likes'].append(row['likes'])
                     hashtag_rendimiento[tag]['usos'] += 1
-        
-        # Calcular media por hashtag (solo los usados 2+ veces)
+
         hashtag_stats = []
         for tag, data in hashtag_rendimiento.items():
             if data['usos'] >= 2:
@@ -550,10 +402,9 @@ with tab_general:
                     'media_likes': int(sum(data['likes']) / len(data['likes'])),
                     'engagement': round(sum(data['likes']) / max(sum(data['vistas']), 1) * 100, 2)
                 })
-        
+
         if hashtag_stats:
             df_hash_stats = pd.DataFrame(hashtag_stats)
-            
             col_h1, col_h2 = st.columns(2)
             with col_h1:
                 st.markdown("**🔥 Top hashtags por alcance (vistas)**")
@@ -575,21 +426,21 @@ with tab_general:
         st.caption("No se encontraron publicaciones con hashtags en este periodo.")
 
 
+
 # ============================================================
 # PESTAÑA INSTAGRAM
 # ============================================================
 with tab_ig:
     df_ig = df_filtrado[df_filtrado['plataforma'] == 'instagram']
-    
+
     if df_ig.empty:
         st.info("Sin datos de Instagram para este periodo.")
     else:
-        # KPIs Instagram
         renderizar_kpis(df_ig, df_metricas[df_metricas['plataforma'] == 'instagram'])
         st.markdown("<br>", unsafe_allow_html=True)
-        
+
         col_datos_ig, col_strat_ig = st.columns([3, 2], gap="large")
-        
+
         with col_datos_ig:
             st.markdown("#### 📈 Evolución")
             df_ig_agr = df_ig.groupby('fecha_publicacion')['visualizaciones'].sum().reset_index()
@@ -599,26 +450,23 @@ with tab_ig:
                 tooltip=['fecha_publicacion', 'visualizaciones']
             ).properties(height=250)
             st.altair_chart(chart_ig, use_container_width=True)
-            
+
             st.markdown("#### 📋 Contenidos")
             renderizar_tabla_contenidos(df_ig)
-        
+
         with col_strat_ig:
-            # Mejor hora Instagram
             st.markdown("#### 🕐 Mejor Hora")
             renderizar_mejor_hora(df_ig, 'instagram')
-            
-            # Palabras clave
+
             claves = extraer_palabras_exito(df_ig, top_n=5, modo='texto')
             if claves:
                 st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600;'>✨ Conceptos Clave</p>", unsafe_allow_html=True)
                 st.markdown("".join([f"<span class='badge-keyword'>#{p}</span>" for p in claves]), unsafe_allow_html=True)
-            
-            # Ideas IA
+
             st.markdown("#### 💡 Dirección Creativa")
             st.markdown(f"<div class='idea-card' style='font-size:0.85rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_ig)}</div>", unsafe_allow_html=True)
-        
-        # Métricas avanzadas Instagram (guardados, compartidos)
+
+        # Métricas avanzadas Instagram
         st.markdown("---")
         st.markdown("#### 💾 Métricas de Valor (Guardados y Compartidos)")
         col_guard, col_comp = st.columns(2)
@@ -641,15 +489,15 @@ with tab_ig:
 # ============================================================
 with tab_tt:
     df_tt = df_filtrado[df_filtrado['plataforma'] == 'tiktok']
-    
+
     if df_tt.empty:
         st.info("Sin datos de TikTok para este periodo.")
     else:
         renderizar_kpis(df_tt, df_metricas[df_metricas['plataforma'] == 'tiktok'])
         st.markdown("<br>", unsafe_allow_html=True)
-        
+
         col_datos_tt, col_strat_tt = st.columns([3, 2], gap="large")
-        
+
         with col_datos_tt:
             st.markdown("#### 📈 Evolución")
             df_tt_agr = df_tt.groupby('fecha_publicacion')['visualizaciones'].sum().reset_index()
@@ -659,22 +507,22 @@ with tab_tt:
                 tooltip=['fecha_publicacion', 'visualizaciones']
             ).properties(height=250)
             st.altair_chart(chart_tt, use_container_width=True)
-            
+
             st.markdown("#### 📋 Contenidos")
             renderizar_tabla_contenidos(df_tt)
-        
+
         with col_strat_tt:
             st.markdown("#### 🕐 Mejor Hora")
             renderizar_mejor_hora(df_tt, 'tiktok')
-            
+
             claves_tt = extraer_palabras_exito(df_tt, top_n=5, modo='hashtags')
             if claves_tt:
                 st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600;'>🎯 Hashtags de Éxito</p>", unsafe_allow_html=True)
                 st.markdown("".join([f"<span class='badge-keyword'>#{p}</span>" for p in claves_tt]), unsafe_allow_html=True)
-            
+
             st.markdown("#### 💡 Dirección Creativa")
             st.markdown(f"<div class='idea-card' style='font-size:0.85rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_tt)}</div>", unsafe_allow_html=True)
-        
+
         # Rendimiento por formato TikTok
         st.markdown("---")
         st.markdown("#### 📊 Compartidos (señal de viralidad)")
@@ -691,15 +539,15 @@ with tab_tt:
 # ============================================================
 with tab_yt:
     df_yt = df_filtrado[df_filtrado['plataforma'] == 'youtube']
-    
+
     if df_yt.empty:
         st.info("Sin datos de YouTube para este periodo.")
     else:
         renderizar_kpis(df_yt, df_metricas[df_metricas['plataforma'] == 'youtube'])
         st.markdown("<br>", unsafe_allow_html=True)
-        
+
         col_datos_yt, col_strat_yt = st.columns([3, 2], gap="large")
-        
+
         with col_datos_yt:
             st.markdown("#### 📈 Evolución")
             df_yt_agr = df_yt.groupby('fecha_publicacion')['visualizaciones'].sum().reset_index()
@@ -709,31 +557,30 @@ with tab_yt:
                 tooltip=['fecha_publicacion', 'visualizaciones']
             ).properties(height=250)
             st.altair_chart(chart_yt, use_container_width=True)
-            
+
             st.markdown("#### 📋 Contenidos")
-            # Separar Shorts y Vídeos largos
             df_yt_largos = df_yt[df_yt['estilo_visual'] == 'Vídeo largo']
             df_yt_shorts = df_yt[df_yt['estilo_visual'] == 'Short']
-            
+
             if not df_yt_largos.empty:
                 st.markdown("**▶ Vídeos Largos**")
                 renderizar_tabla_contenidos(df_yt_largos)
             if not df_yt_shorts.empty:
                 st.markdown("**📱 Shorts**")
                 renderizar_tabla_contenidos(df_yt_shorts)
-        
+
         with col_strat_yt:
             st.markdown("#### 🕐 Mejor Hora")
             renderizar_mejor_hora(df_yt, 'youtube')
-            
+
             claves_yt = extraer_palabras_exito(df_yt, top_n=5, modo='texto')
             if claves_yt:
                 st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#A39B8F; font-weight:600;'>🔍 Palabras de Retención</p>", unsafe_allow_html=True)
                 st.markdown("".join([f"<span class='badge-keyword'>#{p}</span>" for p in claves_yt]), unsafe_allow_html=True)
-            
+
             st.markdown("#### 💡 Dirección Creativa")
             st.markdown(f"<div class='idea-card' style='font-size:0.85rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_yt)}</div>", unsafe_allow_html=True)
-        
+
         # Comparativa Shorts vs Largos
         st.markdown("---")
         st.markdown("#### ⚖️ Shorts vs Vídeos Largos")

@@ -54,6 +54,7 @@ def extraer_y_guardar_video(video_id, youtube_client=None):
     
     vistas = int(video['statistics'].get('viewCount', 0))
     likes = int(video['statistics'].get('likeCount', 0))
+    comentarios = int(video['statistics'].get('commentCount', 0))
     
     # Detectar si es un Short por la duración (≤60s) y formato vertical
     duracion_iso = video['contentDetails'].get('duration', 'PT0S')  # Ej: PT15S, PT3M20S
@@ -72,19 +73,19 @@ def extraer_y_guardar_video(video_id, youtube_client=None):
             
             sql_contenido = """
                 INSERT INTO contenidos 
-                (id_contenido, plataforma, titulo, fecha_publicacion, url, estilo_visual) 
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE titulo=%s, url=%s, estilo_visual=%s
+                (id_contenido, plataforma, titulo, fecha_publicacion, url, estilo_visual, duracion_segundos) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE titulo=%s, url=%s, estilo_visual=%s, duracion_segundos=%s
             """
-            cursor.execute(sql_contenido, (video_id, 'youtube', titulo, fecha_pub, url_video, estilo_visual, titulo, url_video, estilo_visual))
+            cursor.execute(sql_contenido, (video_id, 'youtube', titulo, fecha_pub, url_video, estilo_visual, segundos, titulo, url_video, estilo_visual, segundos))
 
             sql_metricas = """
                 INSERT INTO metricas_rendimiento 
-                (id_contenido, fecha_registro, visualizaciones, likes) 
-                VALUES (%s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s
+                (id_contenido, fecha_registro, visualizaciones, likes, comentarios) 
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE visualizaciones=%s, likes=%s, comentarios=%s
             """
-            cursor.execute(sql_metricas, (video_id, fecha_registro, vistas, likes, vistas, likes))
+            cursor.execute(sql_metricas, (video_id, fecha_registro, vistas, likes, comentarios, vistas, likes, comentarios))
             
             conexion.commit()
             print(f"  ✅ '{titulo}' ({vistas} vistas)")
@@ -97,7 +98,11 @@ def extraer_y_guardar_video(video_id, youtube_client=None):
 
 
 def extraer_youtube():
-    """Extrae los últimos vídeos del canal de YouTube automáticamente."""
+    """Extrae los últimos vídeos del canal de YouTube automáticamente.
+    
+    Usa playlistItems() sobre la playlist 'uploads' del canal (1 unidad de cuota)
+    en lugar de search() (100 unidades de cuota por llamada).
+    """
     if not YOUTUBE_API_KEY:
         print("❌ Error: Falta YOUTUBE_API_KEY en el .env")
         return
@@ -110,7 +115,7 @@ def extraer_youtube():
 
     # --- GUARDAR SUSCRIPTORES ---
     try:
-        canal_resp = youtube_client.channels().list(id=YOUTUBE_CHANNEL_ID, part='statistics').execute()
+        canal_resp = youtube_client.channels().list(id=YOUTUBE_CHANNEL_ID, part='statistics,contentDetails').execute()
         if canal_resp.get('items'):
             subs = int(canal_resp['items'][0]['statistics'].get('subscriberCount', 0))
             from datetime import datetime as _dt
@@ -130,23 +135,41 @@ def extraer_youtube():
     except Exception as e:
         print(f"   ⚠️ No se pudieron guardar suscriptores: {e}")
 
-    # Buscar los últimos vídeos del canal
-    respuesta_busqueda = youtube_client.search().list(
-        channelId=YOUTUBE_CHANNEL_ID,
-        part='id',
-        order='date',
-        maxResults=20,
-        type='video'
-    ).execute()
+    # Obtener playlist de uploads del canal (mucho más eficiente que search)
+    try:
+        canal_resp = youtube_client.channels().list(
+            id=YOUTUBE_CHANNEL_ID,
+            part='contentDetails'
+        ).execute()
+        
+        if not canal_resp.get('items'):
+            print("❌ No se encontró el canal. Verifica YOUTUBE_CHANNEL_ID")
+            return
+        
+        uploads_playlist_id = canal_resp['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+    except Exception as e:
+        print(f"❌ Error al obtener playlist de uploads: {e}")
+        return
 
-    videos_encontrados = respuesta_busqueda.get('items', [])
+    # Listar últimos 10 vídeos desde la playlist de uploads (1 unidad de cuota vs 100)
+    try:
+        playlist_resp = youtube_client.playlistItems().list(
+            playlistId=uploads_playlist_id,
+            part='contentDetails',
+            maxResults=10
+        ).execute()
+    except Exception as e:
+        print(f"❌ Error al listar vídeos: {e}")
+        return
+
+    videos_encontrados = playlist_resp.get('items', [])
     if not videos_encontrados:
         print("No se encontraron vídeos en el canal.")
         return
 
     print(f"📺 Procesando {len(videos_encontrados)} vídeos del canal...")
     for item in videos_encontrados:
-        video_id = item['id']['videoId']
+        video_id = item['contentDetails']['videoId']
         extraer_y_guardar_video(video_id, youtube_client)
 
     print(f"✅ Éxito: {len(videos_encontrados)} vídeos de YouTube sincronizados.")

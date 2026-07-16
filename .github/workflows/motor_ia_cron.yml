@@ -2,8 +2,9 @@ name: Motor IA Semanal
 
 on:
   schedule:
-    # Se ejecuta a las 07:00 UTC (09:00 hora de España aprox) todos los lunes
+    # Se ejecuta a las 07:00 UTC (09:00 hora de España aprox) los lunes y jueves
     - cron: '0 7 * * 1'
+    - cron: '0 7 * * 4'
   workflow_dispatch:
 
 jobs:

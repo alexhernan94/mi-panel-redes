@@ -9,4 +9,5 @@ from panel.utils import (
     renderizar_tabla_contenidos,
     TZ_MADRID,
     DIAS_ES,
+    ESTILO_EDITORIAL,
 )
