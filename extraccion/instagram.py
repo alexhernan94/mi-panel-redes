@@ -2,50 +2,48 @@ import os
 import sys
 import requests
 import mysql.connector
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import get_logger
+from utils import get_logger, obtener_config, guardar_config
+from conexion import obtener_conexion
 
 logger = get_logger('instagram')
 
-# Forzar lectura del .env en la raíz
+# Cargar .env como fallback (para ejecución local sin BD)
 ruta_env = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 load_dotenv(ruta_env)
 
-INSTAGRAM_TOKEN = os.getenv("INSTAGRAM_TOKEN")
-INSTAGRAM_ACCOUNT_ID = os.getenv("INSTAGRAM_ACCOUNT_ID")
-DB_HOST = os.getenv("DB_HOST")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
 
-if not INSTAGRAM_TOKEN or not INSTAGRAM_ACCOUNT_ID:
-    print("⚠️ Faltan credenciales de Instagram en el .env (se omitirá la extracción)")
-    INSTAGRAM_DISPONIBLE = False
-else:
-    INSTAGRAM_DISPONIBLE = True
+def _cargar_credenciales():
+    """Carga credenciales desde BD (prioridad) o .env (fallback)."""
+    token = obtener_config("INSTAGRAM_TOKEN")
+    account_id = obtener_config("INSTAGRAM_ACCOUNT_ID")
+    return token, account_id
+
 
 def auto_renovar_token_meta():
-    """Llama a la API de Meta para extender la vida del token otros 60 días y lo guarda en el .env."""
-    global INSTAGRAM_TOKEN
-    
-    print("🔄 Renovando token de Meta (Instagram)...")
-    
-    client_id = os.getenv("META_CLIENT_ID")
-    client_secret = os.getenv("META_CLIENT_SECRET")
+    """Renueva el token de Meta y lo guarda en la BD."""
+    token_actual = obtener_config("INSTAGRAM_TOKEN")
+    client_id = obtener_config("META_CLIENT_ID")
+    client_secret = obtener_config("META_CLIENT_SECRET")
     
     if not client_id or not client_secret:
-        print("⚠️ No se puede auto-renovar: faltan META_CLIENT_ID o META_CLIENT_SECRET en .env")
+        logger.warning("No se puede auto-renovar: faltan META_CLIENT_ID o META_CLIENT_SECRET")
+        return False
+    if not token_actual:
+        logger.warning("No hay token de Instagram para renovar")
         return False
 
+    logger.info("🔄 Renovando token de Meta (Instagram)...")
+    
     url = "https://graph.facebook.com/v22.0/oauth/access_token"
     params = {
         "grant_type": "fb_exchange_token",
         "client_id": client_id,
         "client_secret": client_secret,
-        "fb_exchange_token": INSTAGRAM_TOKEN
+        "fb_exchange_token": token_actual
     }
 
     try:
@@ -54,37 +52,37 @@ def auto_renovar_token_meta():
 
         if "access_token" in datos:
             nuevo_token = datos["access_token"]
-            # Guardar el nuevo token en el .env para futuras ejecuciones
-            set_key(ruta_env, "INSTAGRAM_TOKEN", nuevo_token)
-            INSTAGRAM_TOKEN = nuevo_token
-            print("✅ Token de Meta renovado correctamente (válido ~60 días más)")
+            guardar_config("INSTAGRAM_TOKEN", nuevo_token)
+            logger.info("✅ Token de Meta renovado correctamente (válido ~60 días más)")
             return True
         else:
             error_msg = datos.get("error", {}).get("message", "Error desconocido")
-            logger.warning(f" No se pudo renovar el token: {error_msg}")
-            print("   El token actual sigue siendo válido hasta que expire.")
+            logger.warning(f"No se pudo renovar el token: {error_msg}")
             return False
     except Exception as e:
-        logger.warning(f" Error de conexión al renovar token: {e}")
+        logger.error(f"Error de conexión al renovar token: {e}")
         return False
 
 def extraer_instagram():
-    if not INSTAGRAM_DISPONIBLE:
-        print("⚠️ Extracción de Instagram omitida (faltan credenciales)")
+    INSTAGRAM_TOKEN, INSTAGRAM_ACCOUNT_ID = _cargar_credenciales()
+    
+    if not INSTAGRAM_TOKEN or not INSTAGRAM_ACCOUNT_ID:
+        logger.warning("Extracción de Instagram omitida (faltan credenciales)")
         return
     
-    # Intentar renovar el token antes de extraer (silencioso si falla)
+    # Intentar renovar el token antes de extraer
     auto_renovar_token_meta()
+    # Recargar token por si se renovó
+    INSTAGRAM_TOKEN = obtener_config("INSTAGRAM_TOKEN")
     
-    print("Conectando con Instagram (Métricas de Valor)...")
+    logger.info("Conectando con Instagram (Métricas de Valor)...")
     
     # --- GUARDAR SEGUIDORES ---
     try:
         url_perfil = f"https://graph.facebook.com/v22.0/{INSTAGRAM_ACCOUNT_ID}?fields=followers_count&access_token={INSTAGRAM_TOKEN}"
         r_perfil = requests.get(url_perfil).json()
         if "followers_count" in r_perfil:
-            from conexion import obtener_conexion as _obtener_conexion
-            _con = _obtener_conexion()
+            _con = obtener_conexion()
             if _con:
                 _cur = _con.cursor()
                 _hoy = datetime.now().strftime('%Y-%m-%d')
@@ -136,7 +134,10 @@ def extraer_instagram():
         print(f"   ⚠️ No se pudieron obtener stories: {e}")
     
     try:
-        conexion = mysql.connector.connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
+        conexion = obtener_conexion()
+        if not conexion:
+            logger.error("No se pudo conectar a la BD")
+            return
         cursor = conexion.cursor()
         
         # --- Guardar publicaciones del feed ---
@@ -277,8 +278,8 @@ def extraer_instagram():
         conexion.commit()
         logger.info(f" Éxito: {len(publicaciones)} posts + {len(stories)} stories de Instagram analizados.")
         
-    except mysql.connector.Error as err:
-        print(f"Error BD: {err}")
+    except Exception as err:
+        logger.error(f"Error BD: {err}")
     finally:
         if 'conexion' in locals() and conexion.is_connected():
             cursor.close()

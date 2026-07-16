@@ -2,41 +2,38 @@ import os
 import sys
 import requests
 from datetime import datetime
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
 
 # Conectar con el archivo base de datos en la raíz
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conexion import obtener_conexion
-from utils import get_logger
+from utils import get_logger, obtener_config, guardar_config
 
 logger = get_logger('tiktok')
 
 ruta_env = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 load_dotenv(ruta_env)
 
-TIKTOK_TOKEN = os.getenv('TIKTOK_ACCESS_TOKEN')
-TIKTOK_CLIENT_KEY = os.getenv('TIKTOK_CLIENT_KEY')
-TIKTOK_CLIENT_SECRET = os.getenv('TIKTOK_CLIENT_SECRET')
-TIKTOK_REFRESH_TOKEN = os.getenv('TIKTOK_REFRESH_TOKEN')
-
 
 def auto_renovar_token_tiktok():
-    """Usa el refresh_token para obtener un nuevo access_token sin intervención del usuario."""
-    global TIKTOK_TOKEN, TIKTOK_REFRESH_TOKEN
+    """Usa el refresh_token para obtener un nuevo access_token y lo guarda en BD."""
+    client_key = obtener_config('TIKTOK_CLIENT_KEY')
+    client_secret = obtener_config('TIKTOK_CLIENT_SECRET')
+    refresh_token = obtener_config('TIKTOK_REFRESH_TOKEN')
 
-    print("🔄 Renovando token de TikTok...")
+    logger.info("🔄 Renovando token de TikTok...")
 
-    if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET or not TIKTOK_REFRESH_TOKEN:
-        print("⚠️ No se puede auto-renovar TikTok: faltan TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET o TIKTOK_REFRESH_TOKEN en .env")
+    if not client_key or not client_secret or not refresh_token:
+        logger.warning("No se puede auto-renovar TikTok: faltan credenciales")
         return False
 
     url = "https://open.tiktokapis.com/v2/oauth/token/"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     datos = {
-        "client_key": TIKTOK_CLIENT_KEY,
-        "client_secret": TIKTOK_CLIENT_SECRET,
+        "client_key": client_key,
+        "client_secret": client_secret,
         "grant_type": "refresh_token",
-        "refresh_token": TIKTOK_REFRESH_TOKEN
+        "refresh_token": refresh_token
     }
 
     try:
@@ -45,37 +42,32 @@ def auto_renovar_token_tiktok():
 
         if "access_token" in datos_json:
             nuevo_access = datos_json["access_token"]
-            nuevo_refresh = datos_json.get("refresh_token", TIKTOK_REFRESH_TOKEN)
+            nuevo_refresh = datos_json.get("refresh_token", refresh_token)
 
-            # Guardar ambos tokens en el .env
-            set_key(ruta_env, "TIKTOK_ACCESS_TOKEN", nuevo_access)
-            set_key(ruta_env, "TIKTOK_REFRESH_TOKEN", nuevo_refresh)
+            guardar_config("TIKTOK_ACCESS_TOKEN", nuevo_access)
+            guardar_config("TIKTOK_REFRESH_TOKEN", nuevo_refresh)
 
-            TIKTOK_TOKEN = nuevo_access
-            TIKTOK_REFRESH_TOKEN = nuevo_refresh
-
-            print("✅ Token de TikTok renovado correctamente")
+            logger.info("✅ Token de TikTok renovado correctamente")
             return True
         else:
             error_msg = datos_json.get("error", datos_json.get("message", "Error desconocido"))
-            print(f"⚠️ No se pudo renovar el token de TikTok: {error_msg}")
-            print("   Si el refresh_token ha expirado (>365 días), necesitas re-autorizar manualmente con auth_tiktok.py")
+            logger.warning(f"No se pudo renovar el token de TikTok: {error_msg}")
             return False
     except Exception as e:
-        print(f"⚠️ Error de conexión al renovar token de TikTok: {e}")
+        logger.error(f"Error de conexión al renovar token de TikTok: {e}")
         return False
 
 def extraer_y_guardar_tiktok():
-    global TIKTOK_TOKEN
-
     # Intentar renovar el token antes de extraer
     auto_renovar_token_tiktok()
+    
+    TIKTOK_TOKEN = obtener_config('TIKTOK_ACCESS_TOKEN')
 
     if not TIKTOK_TOKEN:
-        print("⚠️ Extracción de TikTok omitida (falta TIKTOK_ACCESS_TOKEN)")
+        logger.warning("Extracción de TikTok omitida (falta TIKTOK_ACCESS_TOKEN)")
         return
 
-    print("Conectando con la API de TikTok...")
+    logger.info("Conectando con la API de TikTok...")
 
     # --- GUARDAR SEGUIDORES ---
     try:
