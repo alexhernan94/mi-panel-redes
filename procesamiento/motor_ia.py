@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conexion import obtener_conexion
+from utils import get_logger
 
+logger = get_logger('motor_ia')
 load_dotenv()
 
 # --- 📊 EXTRACCIÓN INTELIGENTE DE DATOS ---

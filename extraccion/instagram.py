@@ -5,6 +5,11 @@ import mysql.connector
 from dotenv import load_dotenv, set_key
 from datetime import datetime
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils import get_logger
+
+logger = get_logger('instagram')
+
 # Forzar lectura del .env en la raíz
 ruta_env = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 load_dotenv(ruta_env)
@@ -56,11 +61,11 @@ def auto_renovar_token_meta():
             return True
         else:
             error_msg = datos.get("error", {}).get("message", "Error desconocido")
-            print(f"⚠️ No se pudo renovar el token: {error_msg}")
+            logger.warning(f" No se pudo renovar el token: {error_msg}")
             print("   El token actual sigue siendo válido hasta que expire.")
             return False
     except Exception as e:
-        print(f"⚠️ Error de conexión al renovar token: {e}")
+        logger.warning(f" Error de conexión al renovar token: {e}")
         return False
 
 def extraer_instagram():
@@ -91,7 +96,7 @@ def extraer_instagram():
                 _con.commit()
                 _cur.close()
                 _con.close()
-                print(f"   👥 Seguidores Instagram: {r_perfil['followers_count']}")
+                logger.info(f"👥 Seguidores Instagram: {r_perfil['followers_count']}")
     except Exception as e:
         print(f"   ⚠️ No se pudieron guardar seguidores: {e}")
     
@@ -242,7 +247,7 @@ def extraer_instagram():
                         elif metrica["name"] == "replies":
                             replies = metrica["values"][0]["value"]
                     
-                    print(f"   📊 Story {id_story[:15]}... → {impressions} vistas, {reach} alcance, {replies} respuestas")
+                    logger.info(f"📊 Story {id_story[:15]}... → {impressions} vistas, {reach} alcance, {replies} respuestas")
                 else:
                     print(f"   ⚠️ Story {id_story[:15]}... → Sin datos de insights (respuesta: {str(data_story_ins)[:100]})")
                     
@@ -270,7 +275,7 @@ def extraer_instagram():
             cursor.execute(sql_metrica, (id_story, fecha_registro, impressions, reach, replies, impressions, reach, replies))
             
         conexion.commit()
-        print(f"✅ Éxito: {len(publicaciones)} posts + {len(stories)} stories de Instagram analizados.")
+        logger.info(f" Éxito: {len(publicaciones)} posts + {len(stories)} stories de Instagram analizados.")
         
     except mysql.connector.Error as err:
         print(f"Error BD: {err}")
