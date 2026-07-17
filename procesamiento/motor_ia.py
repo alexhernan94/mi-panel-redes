@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conexion import obtener_conexion
 from utils import get_logger
+from panel.ideas_ejecutadas import construir_contexto_feedback
 
 logger = get_logger('motor_ia')
 load_dotenv()
@@ -331,6 +332,13 @@ def analizar_y_generar_ideas():
         
         # 3. CONSTRUCCIÓN DEL CONTEXTO
         datos_contexto = construir_contexto(datos)
+        
+        # 3b. FEEDBACK DE IDEAS ANTERIORES
+        feedback_ideas = construir_contexto_feedback()
+        if feedback_ideas:
+            datos_contexto += "\n" + feedback_ideas
+            print("📋 Feedback de ideas anteriores inyectado en el contexto.")
+        
         print(f"📊 Datos procesados: {len(datos['top_engagement'])} top posts, "
               f"{len(datos['rendimiento_por_categoria'])} categorías analizadas.")
         

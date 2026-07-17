@@ -81,3 +81,24 @@ CREATE TABLE IF NOT EXISTS objetivos (
     INDEX idx_plat_metrica (plataforma, metrica)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============================================================
+-- MIGRACIÓN: Histórico de ideas ejecutadas (feedback loop IA)
+-- Ejecutar en phpMyAdmin → pestaña SQL
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS ideas_ejecutadas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_insight INT NOT NULL,
+    plataforma ENUM('instagram', 'tiktok', 'youtube') NOT NULL,
+    formato VARCHAR(50) DEFAULT NULL,
+    texto_idea VARCHAR(500) NOT NULL,
+    ejecutada BOOLEAN DEFAULT FALSE,
+    id_contenido VARCHAR(100) DEFAULT NULL,
+    fecha_marcada DATETIME DEFAULT NULL,
+    fecha_generacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_insight (id_insight),
+    INDEX idx_ejecutada (ejecutada),
+    INDEX idx_plataforma (plataforma),
+    CONSTRAINT fk_idea_insight FOREIGN KEY (id_insight) REFERENCES insights_ia(id_insight) ON DELETE CASCADE,
+    CONSTRAINT fk_idea_contenido FOREIGN KEY (id_contenido) REFERENCES contenidos(id_contenido) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

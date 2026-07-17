@@ -10,6 +10,7 @@ Cuadro de mandos privado para la marca **itsbgart** que centraliza las métricas
 
 ### Inteligencia y estrategia
 - **Motor de IA** (Gemini) que analiza el rendimiento y genera ideas de contenido 2x/semana
+- **Feedback loop de ideas** — la artista marca qué publicó, la IA aprende de los resultados
 - **Captions listos para copiar** generados por IA con diseño editorial (tarjetas por plataforma)
 - **Planificador semanal** automático basado en datos reales de engagement por día
 - **Vista "Qué publicar hoy"** — abre el panel y sabe qué hacer (formato, hora, idea, caption)
@@ -72,7 +73,8 @@ mi-panel-redes/
 │   ├── bio_tracking.py             # Tracking de tráfico a la web
 │   ├── audiencia.py                # Ratio seguidores/no-seguidores
 │   ├── repurposing.py              # Sugerencias de reciclaje entre plataformas
-│   └── tendencias.py               # Detector de tendencias del nicho
+│   ├── tendencias.py               # Detector de tendencias del nicho
+│   └── ideas_ejecutadas.py         # Feedback loop IA (ideas publicadas/descartadas)
 ├── alertas/
 │   ├── __init__.py                 # Exports del módulo
 │   ├── email_sender.py             # Envío de emails via Gmail SMTP
@@ -88,6 +90,7 @@ mi-panel-redes/
 ├── tablas.sql                      # Estructura completa de la base de datos
 ├── migracion_nuevas_metricas.sql   # Migración: comentarios, alcance, duración
 ├── migracion_objetivos.sql         # Migración: tabla de objetivos
+├── migracion_ideas_ejecutadas.sql  # Migración: feedback loop IA
 ├── requirements.txt                # Dependencias Python (versiones pinadas)
 └── GUIA_CREDENCIALES.md            # Guía para obtener todas las credenciales
 ```
@@ -98,8 +101,8 @@ mi-panel-redes/
 |---|---|
 | 🎯 **Hoy** | Qué publicar hoy (formato, plataforma, hora, idea IA, caption listo, estado) |
 | 📊 **General** | KPIs, insights IA, planificador, captions, objetivos, calendario, evergreen, benchmark, diferencias plataformas |
-| 📸 **Instagram** | Evolución, contenidos, mejor hora, ideas IA, métricas de valor, funnel, audiencia, bio tracking, repurposing IG→TT, tendencias IG |
-| 🎵 **TikTok** | Evolución, contenidos, mejor hora, ideas IA, viralidad, funnel, audiencia, bio tracking, repurposing TT→IG, tendencias TT |
+| 📸 **Instagram** | Evolución, contenidos, mejor hora, ideas IA, **feedback ideas**, métricas de valor, funnel, audiencia, bio tracking, repurposing IG→TT, tendencias IG |
+| 🎵 **TikTok** | Evolución, contenidos, mejor hora, ideas IA, **feedback ideas**, viralidad, funnel, audiencia, bio tracking, repurposing TT→IG, tendencias TT |
 | 📺 **YouTube** | Evolución, contenidos (Shorts vs Largos), mejor hora, ideas IA, comparativa formatos |
 
 ## Métricas capturadas
@@ -202,6 +205,41 @@ El panel incluye un widget de objetivos que:
 - Proyecta cuándo se alcanzará la meta basándose en la tendencia real
 - Permite añadir nuevos objetivos directamente desde el panel
 
+## Feedback Loop: Ideas Ejecutadas
+
+La IA genera ideas de contenido, pero además **aprende de los resultados**:
+
+1. En las pestañas de Instagram y TikTok aparece la sección "📋 Ideas de la IA → ¿Las publicaste?"
+2. Cada idea se muestra como tarjeta con dos botones:
+   - **✅ Publicada** — enlaza automáticamente con el post más reciente y registra sus métricas
+   - **🗑️ Descartada** — la IA aprende que ese tipo de idea no encaja
+3. Las ideas publicadas muestran sus resultados reales (vistas, engagement)
+4. En la siguiente ejecución del motor IA, el prompt incluye:
+   - Qué ideas fueron éxito (genera más del mismo estilo)
+   - Qué ideas fueron ignoradas o tuvieron bajo rendimiento (genera menos de ese tipo)
+5. Una barra de progreso muestra la tasa de ejecución
+
+Tras 4-6 semanas de uso, la IA se ajusta al estilo real de la artista: no solo lo que funciona en general, sino lo que **ella ejecuta bien**.
+
+### Migración necesaria
+
+```sql
+-- Ejecutar en phpMyAdmin (migracion_ideas_ejecutadas.sql)
+CREATE TABLE IF NOT EXISTS ideas_ejecutadas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_insight INT NOT NULL,
+    plataforma ENUM('instagram', 'tiktok', 'youtube') NOT NULL,
+    formato VARCHAR(50) DEFAULT NULL,
+    texto_idea VARCHAR(500) NOT NULL,
+    ejecutada BOOLEAN DEFAULT FALSE,
+    id_contenido VARCHAR(100) DEFAULT NULL,
+    fecha_marcada DATETIME DEFAULT NULL,
+    fecha_generacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_insight) REFERENCES insights_ia(id_insight) ON DELETE CASCADE,
+    FOREIGN KEY (id_contenido) REFERENCES contenidos(id_contenido) ON DELETE SET NULL
+);
+```
+
 ## Mantenimiento y resolución de problemas
 
 ### Sistema de credenciales
@@ -248,6 +286,7 @@ Los scripts escriben logs en `logs/panel.log` (en ejecución local). En GitHub A
 contenidos            → Catálogo de publicaciones (id, plataforma, título, formato, duración, fecha, url)
 metricas_rendimiento  → Métricas por contenido (vistas, likes, compartidos, guardados, comentarios, alcance)
 insights_ia           → Historial de análisis generados por Gemini
+ideas_ejecutadas      → Feedback loop: ideas publicadas/descartadas con resultados
 seguidores_historico  → Evolución diaria de seguidores por plataforma
 configuracion         → Tokens y credenciales que se auto-renuevan
 objetivos             → Metas de crecimiento con fecha límite

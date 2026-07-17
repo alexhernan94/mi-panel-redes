@@ -35,6 +35,7 @@ from panel.bio_tracking import renderizar_bio_tracking
 from panel.audiencia import renderizar_ratio_audiencia, renderizar_ratio_audiencia_tiktok
 from panel.repurposing import renderizar_repurposing, renderizar_repurposing_tiktok
 from panel.tendencias import renderizar_tendencias, renderizar_tendencias_tiktok, renderizar_diferencias_plataformas
+from panel.ideas_ejecutadas import renderizar_ideas_ejecutadas
 
 warnings.filterwarnings('ignore')
 
@@ -532,6 +533,10 @@ with tab_ig:
             st.markdown("#### 💡 Dirección Creativa")
             st.markdown(f"<div class='idea-card' style='font-size:0.85rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_ig)}</div>", unsafe_allow_html=True)
 
+        # Ideas ejecutadas (feedback loop)
+        st.markdown("---")
+        renderizar_ideas_ejecutadas(df_ia, plataforma='instagram')
+
         # Métricas avanzadas Instagram
         st.markdown("---")
         st.markdown("#### 💾 Métricas de Valor (Guardados y Compartidos)")
@@ -609,6 +614,10 @@ with tab_tt:
 
             st.markdown("#### 💡 Dirección Creativa")
             st.markdown(f"<div class='idea-card' style='font-size:0.85rem; line-height:1.6;'>{renderizar_etiquetas_visuales(ideas_tt)}</div>", unsafe_allow_html=True)
+
+        # Ideas ejecutadas (feedback loop)
+        st.markdown("---")
+        renderizar_ideas_ejecutadas(df_ia, plataforma='tiktok')
 
         # Rendimiento por formato TikTok
         st.markdown("---")
