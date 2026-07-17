@@ -28,6 +28,13 @@ from panel import (
     ESTILO_EDITORIAL,
 )
 from panel.objetivos import renderizar_objetivos
+from panel.hoy import renderizar_hoy
+from panel.mobile import ESTILO_MOBILE
+from panel.funnel import renderizar_funnel
+from panel.bio_tracking import renderizar_bio_tracking
+from panel.audiencia import renderizar_ratio_audiencia, renderizar_ratio_audiencia_tiktok
+from panel.repurposing import renderizar_repurposing, renderizar_repurposing_tiktok
+from panel.tendencias import renderizar_tendencias, renderizar_tendencias_tiktok, renderizar_diferencias_plataformas
 
 warnings.filterwarnings('ignore')
 
@@ -39,6 +46,7 @@ if not verificar_contrasena():
 
 # --- ESTILOS ---
 st.markdown(ESTILO_EDITORIAL, unsafe_allow_html=True)
+st.markdown(ESTILO_MOBILE, unsafe_allow_html=True)
 
 # --- HEADER ---
 st.markdown("<h1 style='text-align: left;'>itsbgart <span style='font-family: Montserrat; font-size: 1.3rem; color: #A39B8F; font-weight:300; letter-spacing:1px;'> | CUADRO DE MANDOS</span></h1>", unsafe_allow_html=True)
@@ -104,7 +112,14 @@ if not df_ia.empty:
             planificador_semanal = parte_plan.strip()
 
 # --- PESTAÑAS PRINCIPALES ---
-tab_general, tab_ig, tab_tt, tab_yt = st.tabs(["📊 General", "📸 Instagram", "🎵 TikTok", "📺 YouTube"])
+tab_hoy, tab_general, tab_ig, tab_tt, tab_yt = st.tabs(["🎯 Hoy", "📊 General", "📸 Instagram", "🎵 TikTok", "📺 YouTube"])
+
+
+# ============================================================
+# PESTAÑA HOY
+# ============================================================
+with tab_hoy:
+    renderizar_hoy(df_metricas, ideas_ig, ideas_tt, ideas_yt, captions_ia, planificador_semanal)
 
 
 # ============================================================
@@ -184,21 +199,67 @@ with tab_general:
     # Captions generados por IA
     if captions_ia:
         st.markdown("### ✍️ Captions Listos para Usar")
-        st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Generados por IA, optimizados para engagement. Copia y pega.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.8rem; color:#A39B8F;'>Generados por IA, optimizados para engagement. Selecciona el texto y copia.</p>", unsafe_allow_html=True)
         captions_lineas = captions_ia.split('\n')
         caption_actual = ""
+        captions_parseados = []
         for linea in captions_lineas:
             linea = linea.strip()
             if not linea:
                 continue
             if linea[0].isdigit() and '.' in linea[:3]:
                 if caption_actual:
-                    st.code(caption_actual.strip(), language=None)
+                    captions_parseados.append(caption_actual.strip())
                 caption_actual = linea.split('.', 1)[1].strip() + "\n"
             else:
                 caption_actual += linea + "\n"
         if caption_actual:
-            st.code(caption_actual.strip(), language=None)
+            captions_parseados.append(caption_actual.strip())
+
+        # Renderizar en grid de 2 columnas con tarjetas
+        for i in range(0, len(captions_parseados), 2):
+            cols_cap = st.columns(2)
+            for j, col in enumerate(cols_cap):
+                idx = i + j
+                if idx < len(captions_parseados):
+                    cap = captions_parseados[idx]
+                    # Extraer tag de plataforma/formato si existe
+                    tag_match = re.match(r'\[([^\]]+)\]', cap)
+                    tag_label = tag_match.group(1) if tag_match else ""
+                    cap_limpio = re.sub(r'\[[^\]]+\]\s*', '', cap, count=1).strip()
+                    cap_html = cap_limpio.replace('\n', '<br>')
+
+                    # Color del badge según plataforma
+                    if 'INSTAGRAM' in tag_label.upper() or 'REEL' in tag_label.upper() or 'CARRUSEL' in tag_label.upper():
+                        badge_color = "#D1C8BA"
+                        badge_text_color = "#4A453F"
+                        emoji = "📸"
+                    elif 'TIKTOK' in tag_label.upper():
+                        badge_color = "#5C554B"
+                        badge_text_color = "#FFFFFF"
+                        emoji = "🎵"
+                    elif 'YOUTUBE' in tag_label.upper():
+                        badge_color = "#8C8273"
+                        badge_text_color = "#FFFFFF"
+                        emoji = "📺"
+                    else:
+                        badge_color = "#E8E3DA"
+                        badge_text_color = "#5C554B"
+                        emoji = "✍️"
+
+                    with col:
+                        st.markdown(f"""
+                        <div style="background:#FFFFFF; border:1px solid #E8E3DA; border-radius:8px; padding:1rem; margin-bottom:0.5rem; height:100%;">
+                            <div style="margin-bottom:0.6rem;">
+                                <span style="background:{badge_color}; color:{badge_text_color}; padding:3px 10px; border-radius:12px; font-size:0.6rem; font-weight:600; letter-spacing:0.5px;">{emoji} {tag_label}</span>
+                            </div>
+                            <p style="font-size:0.8rem; line-height:1.65; color:#4A453F; margin:0; white-space:pre-wrap;">{cap_html}</p>
+                            <div style="margin-top:0.6rem; padding-top:0.5rem; border-top:1px solid #F4F1EA;">
+                                <span style="font-size:0.6rem; color:#A39B8F; text-transform:uppercase; letter-spacing:1px;">📋 Selecciona y copia</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
         st.markdown("---")
 
     # Objetivos de crecimiento
@@ -296,6 +357,11 @@ with tab_general:
                 st.metric(f"{'📸' if plat=='instagram' else '🎵' if plat=='tiktok' else '📺'} {plat.capitalize()}", f"{tu_eng:.2f}%", delta=f"{tu_eng-ref:+.2f}% vs {ref}%")
             else:
                 st.metric(plat.capitalize(), "—")
+
+    st.markdown("---")
+
+    # Diferencias clave entre plataformas
+    renderizar_diferencias_plataformas(df_filtrado)
 
     st.markdown("---")
 
@@ -469,19 +535,40 @@ with tab_ig:
         # Métricas avanzadas Instagram
         st.markdown("---")
         st.markdown("#### 💾 Métricas de Valor (Guardados y Compartidos)")
+        df_ig_sin_stories = df_ig[df_ig['estilo_visual'] != 'Story']
         col_guard, col_comp = st.columns(2)
         with col_guard:
-            top_guardados = df_ig.sort_values('guardados', ascending=False).head(5)
+            top_guardados = df_ig_sin_stories.sort_values('guardados', ascending=False).head(5)
             if top_guardados['guardados'].sum() > 0:
                 st.dataframe(top_guardados[['titulo','guardados','likes']].rename(columns={'titulo':'Obra','guardados':'💾','likes':'❤️'}), use_container_width=True, hide_index=True)
             else:
                 st.caption("Sin datos de guardados disponibles.")
         with col_comp:
-            top_compartidos = df_ig.sort_values('compartidos', ascending=False).head(5)
+            top_compartidos = df_ig_sin_stories.sort_values('compartidos', ascending=False).head(5)
             if top_compartidos['compartidos'].sum() > 0:
                 st.dataframe(top_compartidos[['titulo','compartidos','likes']].rename(columns={'titulo':'Obra','compartidos':'✈️','likes':'❤️'}), use_container_width=True, hide_index=True)
             else:
                 st.caption("Sin datos de compartidos disponibles.")
+
+        # Funnel de conversión
+        st.markdown("---")
+        renderizar_funnel(df_ig, 'instagram')
+
+        # Ratio audiencia (solo IG)
+        st.markdown("---")
+        renderizar_ratio_audiencia(df_ig)
+
+        # Bio tracking (solo IG)
+        st.markdown("---")
+        renderizar_bio_tracking(df_ig)
+
+        # Repurposing (solo IG → TikTok)
+        st.markdown("---")
+        renderizar_repurposing(df_filtrado)
+
+        # Tendencias del nicho (solo IG)
+        st.markdown("---")
+        renderizar_tendencias(df_filtrado)
 
 
 # ============================================================
@@ -532,6 +619,26 @@ with tab_tt:
                 columns={'titulo':'Obra','visualizaciones':'👁️','likes':'❤️','compartidos':'✈️'}),
                 column_config={"url": st.column_config.LinkColumn("🔗", display_text="Ver")},
                 use_container_width=True, hide_index=True)
+
+        # Funnel de conversión TikTok
+        st.markdown("---")
+        renderizar_funnel(df_tt, 'tiktok')
+
+        # Ratio audiencia (solo TT)
+        st.markdown("---")
+        renderizar_ratio_audiencia_tiktok(df_filtrado)
+
+        # Bio tracking (solo TT)
+        st.markdown("---")
+        renderizar_bio_tracking(df_tt)
+
+        # Repurposing (TT → IG)
+        st.markdown("---")
+        renderizar_repurposing_tiktok(df_filtrado)
+
+        # Tendencias del nicho (solo TT)
+        st.markdown("---")
+        renderizar_tendencias_tiktok(df_filtrado)
 
 
 # ============================================================

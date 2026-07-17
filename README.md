@@ -8,21 +8,44 @@ Cuadro de mandos privado para la marca **itsbgart** que centraliza las métricas
 
 ## Funcionalidades
 
-- **Extracción automática** de métricas de Instagram (posts + stories + insights + reach), TikTok y YouTube
+### Inteligencia y estrategia
 - **Motor de IA** (Gemini) que analiza el rendimiento y genera ideas de contenido 2x/semana
-- **Captions listos para copiar** generados por IA, optimizados para engagement
+- **Captions listos para copiar** generados por IA con diseño editorial (tarjetas por plataforma)
 - **Planificador semanal** automático basado en datos reales de engagement por día
+- **Vista "Qué publicar hoy"** — abre el panel y sabe qué hacer (formato, hora, idea, caption)
+- **Detector de tendencias del nicho** diferenciado por plataforma (IG vs TT)
+- **Auto-repurposing sugerido** — IG→TikTok y TikTok→IG con tips de adaptación
+
+### Análisis y métricas
+- **Extracción automática** de métricas de Instagram (posts + stories + insights + reach), TikTok y YouTube
+- **Funnel de conversión** por post (Vistas→Likes→Compartidos→Guardados) — solo IG y TT
+- **Ratio seguidores/no-seguidores** — ¿tu contenido llega a gente nueva? (IG y TT)
+- **Tracking de links en bio** — detecta qué posts dirigen tráfico a www.itsbgart.es
+- **Diferencias clave entre plataformas** — comparativa IG vs TT con insight accionable
+- **Mejor hora de publicación** segmentada por red social (hora Madrid)
+- **Contenido evergreen** — posts que siguen generando vistas semanas después
+- **Benchmark vs sector** — tu engagement contra promedios del nicho arte/lifestyle
+- **Análisis de hashtags por rendimiento** — no los más usados, sino los que mejor funcionan
+- **Correlación contenido → crecimiento** — qué posts generan nuevos seguidores
+- **Detección de anomalías** (posts virales) por plataforma
+
+### Crecimiento y productividad
 - **Sistema de objetivos** con proyección de crecimiento ("a este ritmo llegas el X")
 - **Alertas por email** cuando un post se viraliza o un token tiene problemas
-- **Detección de anomalías** (posts virales y bajo rendimiento) por plataforma
-- **Mejor hora de publicación** segmentada por red social (hora Madrid)
-- **Contenido evergreen** — identifica posts que siguen generando vistas semanas después
-- **Benchmark vs sector** — compara tu engagement contra promedios del nicho arte/lifestyle
 - **Calendario editorial** — visualiza tu cadencia de publicación
-- **Correlación contenido → crecimiento** — qué posts generan nuevos seguidores
-- **Análisis de hashtags por rendimiento** — no los más usados, sino los que mejor funcionan
+- **Dashboard mobile-first** — responsive, usable desde el teléfono
 - **Renovación automática de tokens** (Instagram y TikTok)
 - **Sincronización automática** 2x/día vía GitHub Actions
+
+## Prioridad de plataformas
+
+El sistema está configurado con la siguiente distribución de esfuerzo:
+
+| Plataforma | Peso | Días/semana | Rol estratégico |
+|---|---|---|---|
+| 📸 Instagram | 60% | 4 días | Conversión, fidelización, ventas |
+| 🎵 TikTok | 30% | 2 días | Descubrimiento, viralidad |
+| 📺 YouTube | 10% | 1 día | Contenido largo, autoridad |
 
 ## Arquitectura
 
@@ -42,7 +65,14 @@ mi-panel-redes/
 │   ├── auth.py                     # Sistema de autenticación
 │   ├── datos.py                    # Carga de datos desde BD
 │   ├── utils.py                    # Funciones auxiliares + estilos CSS
-│   └── objetivos.py                # Sistema de objetivos y proyecciones
+│   ├── mobile.py                   # Estilos responsive (mobile-first)
+│   ├── hoy.py                      # Vista "Qué publicar hoy"
+│   ├── objetivos.py                # Sistema de objetivos y proyecciones
+│   ├── funnel.py                   # Funnel de conversión por post
+│   ├── bio_tracking.py             # Tracking de tráfico a la web
+│   ├── audiencia.py                # Ratio seguidores/no-seguidores
+│   ├── repurposing.py              # Sugerencias de reciclaje entre plataformas
+│   └── tendencias.py               # Detector de tendencias del nicho
 ├── alertas/
 │   ├── __init__.py                 # Exports del módulo
 │   ├── email_sender.py             # Envío de emails via Gmail SMTP
@@ -61,6 +91,16 @@ mi-panel-redes/
 ├── requirements.txt                # Dependencias Python (versiones pinadas)
 └── GUIA_CREDENCIALES.md            # Guía para obtener todas las credenciales
 ```
+
+## Pestañas del panel
+
+| Pestaña | Contenido |
+|---|---|
+| 🎯 **Hoy** | Qué publicar hoy (formato, plataforma, hora, idea IA, caption listo, estado) |
+| 📊 **General** | KPIs, insights IA, planificador, captions, objetivos, calendario, evergreen, benchmark, diferencias plataformas |
+| 📸 **Instagram** | Evolución, contenidos, mejor hora, ideas IA, métricas de valor, funnel, audiencia, bio tracking, repurposing IG→TT, tendencias IG |
+| 🎵 **TikTok** | Evolución, contenidos, mejor hora, ideas IA, viralidad, funnel, audiencia, bio tracking, repurposing TT→IG, tendencias TT |
+| 📺 **YouTube** | Evolución, contenidos (Shorts vs Largos), mejor hora, ideas IA, comparativa formatos |
 
 ## Métricas capturadas
 
@@ -215,7 +255,7 @@ objetivos             → Metas de crecimiento con fecha límite
 
 ## Stack tecnológico
 
-- **Frontend:** Streamlit + Altair (visualización)
+- **Frontend:** Streamlit + Altair (visualización) + CSS responsive (mobile-first)
 - **Backend:** Python + MySQL
 - **IA:** Google Gemini 3.1 Flash Lite
 - **APIs:** Meta Graph API v22.0, TikTok API v2, YouTube Data API v3
