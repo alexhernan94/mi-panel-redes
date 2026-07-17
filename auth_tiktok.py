@@ -1,24 +1,27 @@
 import os
+import sys
 import urllib.parse
 import hashlib
 import base64
 import secrets
 import requests
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
 
 ruta_env = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(ruta_env)
 
-CLIENT_KEY = os.getenv('TIKTOK_CLIENT_KEY')
-CLIENT_SECRET = os.getenv('TIKTOK_CLIENT_SECRET')
-REDIRECT_URI = os.getenv('TIKTOK_REDIRECT_URI')
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from utils import obtener_config, guardar_config
+
+# Lee credenciales de BD (prioridad) → .env (fallback)
+CLIENT_KEY = obtener_config('TIKTOK_CLIENT_KEY')
+CLIENT_SECRET = obtener_config('TIKTOK_CLIENT_SECRET')
+REDIRECT_URI = obtener_config('TIKTOK_REDIRECT_URI')
 
 
 def generar_code_challenge():
     """Genera code_verifier y code_challenge para PKCE (formato TikTok)."""
-    # TikTok requiere un code_verifier de 43-128 caracteres alfanuméricos
-    code_verifier = secrets.token_urlsafe(32)  # ~43 caracteres, URL-safe sin padding
-    # code_challenge = base64url(sha256(code_verifier)) sin padding '='
+    code_verifier = secrets.token_urlsafe(32)
     digest = hashlib.sha256(code_verifier.encode('ascii')).digest()
     code_challenge = base64.urlsafe_b64encode(digest).decode('ascii').rstrip('=')
     return code_verifier, code_challenge
@@ -28,10 +31,11 @@ def obtener_token():
     print("--- ASISTENTE DE AUTORIZACIÓN DE TIKTOK (con PKCE) ---")
     
     if not CLIENT_KEY or not CLIENT_SECRET:
-        print("\n❌ Error: Faltan TIKTOK_CLIENT_KEY o TIKTOK_CLIENT_SECRET en tu .env")
+        print("\n❌ Error: Faltan TIKTOK_CLIENT_KEY o TIKTOK_CLIENT_SECRET")
+        print("   Asegúrate de que están en la tabla 'configuracion' de la BD o en el .env")
         return
     
-    redirect_uri = REDIRECT_URI or "https://localhost:3000/"
+    redirect_uri = REDIRECT_URI or "https://alexhernan94.github.io/itsbgart.github.io/callback.html"
     
     # Generar PKCE
     code_verifier, code_challenge = generar_code_challenge()
@@ -50,8 +54,7 @@ def obtener_token():
     print("\n1. Abre este enlace en tu navegador:")
     print(f"\n{url_auth}\n")
     print("2. Inicia sesión en TikTok y dale a 'Autorizar'.")
-    print("3. Te redirigirá a una página que no carga (localhost). ¡ES NORMAL!")
-    print("4. Copia la URL COMPLETA de la barra de direcciones del navegador.")
+    print("3. Te redirigirá a la página de callback. ¡Copia la URL completa de la barra de direcciones!")
     
     # 2. Pedir al usuario que pegue la URL con el código
     url_respuesta = input("\n-> Pega la URL completa aquí y pulsa Enter: ")
@@ -83,16 +86,18 @@ def obtener_token():
         access_token = datos_json['access_token']
         refresh_token = datos_json.get('refresh_token', '')
         
-        # Guardar automáticamente en el .env
-        set_key(ruta_env, "TIKTOK_ACCESS_TOKEN", access_token)
+        # Guardar en BD (fuente centralizada)
+        guardar_config("TIKTOK_ACCESS_TOKEN", access_token)
         if refresh_token:
-            set_key(ruta_env, "TIKTOK_REFRESH_TOKEN", refresh_token)
+            guardar_config("TIKTOK_REFRESH_TOKEN", refresh_token)
         
-        print("\n🎉 ¡ÉXITO! Tokens guardados automáticamente en tu .env:")
+        print("\n🎉 ¡ÉXITO! Tokens guardados en la base de datos:")
         print(f"   TIKTOK_ACCESS_TOKEN = {access_token[:20]}...")
         if refresh_token:
             print(f"   TIKTOK_REFRESH_TOKEN = {refresh_token[:20]}...")
             print("\n   El refresh token se usará para renovar automáticamente (válido 365 días).")
+        print("\n   Los tokens están en la tabla 'configuracion' de la BD.")
+        print("   GitHub Actions y Streamlit Cloud los leerán automáticamente.")
     else:
         print("\n❌ Error al obtener el token:")
         print(datos_json)

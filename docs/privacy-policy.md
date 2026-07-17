@@ -1,51 +1,85 @@
-# Política de Privacidad — itsbgart Analytics
+# Privacy Policy — CreatorMetrics
 
-**Última actualización:** 16 de julio de 2026
+**Last updated:** July 17, 2026
 
-## 1. Información que recopilamos
+## 1. Introduction
 
-Esta aplicación ("itsbgart Analytics") accede a los siguientes datos de tu cuenta de TikTok mediante la API oficial de TikTok:
+CreatorMetrics ("we", "our", "the Service") is a social media analytics platform for content creators. This Privacy Policy explains how we collect, use, and protect information when you use our Service.
 
-- Información básica del perfil (nombre de usuario, avatar, número de seguidores)
-- Lista de vídeos publicados y sus métricas públicas (visualizaciones, likes, comentarios, compartidos)
+## 2. Information We Collect
 
-## 2. Cómo usamos la información
+When you connect your social media accounts, we access:
 
-Los datos se utilizan exclusivamente para:
+**From TikTok (via TikTok API):**
+- Basic profile information (username, display name, avatar, follower count)
+- Video list and public performance metrics (views, likes, comments, shares)
 
-- Mostrar estadísticas de rendimiento en un panel de analítica privado
-- Generar recomendaciones de estrategia de contenido
-- Analizar tendencias y patrones de engagement
+**From Instagram (via Meta Graph API):**
+- Basic profile information and follower count
+- Media posts, stories, and their metrics (impressions, reach, saves, shares)
+- Comments on your posts (for sentiment analysis)
 
-## 3. Almacenamiento de datos
+**From YouTube (via YouTube Data API):**
+- Channel information and subscriber count
+- Video list with metrics (views, likes, comments, duration)
 
-- Los datos se almacenan en una base de datos privada protegida con credenciales de acceso
-- Solo el propietario de la cuenta (la creadora de contenido) tiene acceso al panel
-- No se comparten datos con terceros
+We only access data from your own authenticated account. We never access data from other users' accounts.
 
-## 4. No vendemos datos
+## 3. How We Use Your Information
 
-No vendemos, alquilamos ni compartimos la información personal del usuario con ningún tercero.
+Your data is used exclusively to:
 
-## 5. Seguridad
+- Display your performance metrics in a unified analytics dashboard
+- Generate AI-powered content strategy recommendations
+- Analyze trends, engagement patterns, and optimal posting times
+- Track follower growth over time
+- Provide sentiment analysis of your audience's comments
 
-- Los tokens de acceso se almacenan cifrados y se renuevan automáticamente
-- El acceso al panel requiere autenticación por contraseña
-- Las conexiones a la base de datos están protegidas
+## 4. Data Storage and Security
 
-## 6. Retención de datos
+- Data is stored in a secure, password-protected database
+- Access tokens are stored securely and renewed automatically
+- Dashboard access requires authentication
+- All database connections use encrypted channels
+- We implement industry-standard security practices
 
-Los datos se conservan mientras la cuenta esté activa. El usuario puede solicitar la eliminación de sus datos en cualquier momento contactando a: itsbgart@gmail.com
+## 5. Data Sharing
 
-## 7. Derechos del usuario
+We do **not** sell, rent, trade, or share your personal information with any third parties. Your data stays private and is only accessible to you through the authenticated dashboard.
 
-El usuario puede en cualquier momento:
-- Revocar el acceso de esta aplicación desde la configuración de TikTok
-- Solicitar la eliminación de todos los datos almacenados
-- Solicitar una copia de los datos almacenados
+## 6. Third-Party Services
 
-## 8. Contacto
+We use the following third-party services:
+- **TikTok API** — to retrieve your TikTok data (governed by TikTok's Privacy Policy)
+- **Meta Graph API** — to retrieve your Instagram data (governed by Meta's Privacy Policy)
+- **YouTube Data API** — to retrieve your YouTube data (governed by Google's Privacy Policy)
+- **Google Gemini AI** — to generate content recommendations (no personal data is stored by Google)
 
-Para cualquier pregunta sobre esta política de privacidad:
+## 7. Data Retention
+
+- Your data is retained while your account is active
+- You may request deletion of all your data at any time
+- Upon account deletion, all associated data is permanently removed within 30 days
+
+## 8. Your Rights
+
+You have the right to:
+- Access all data we store about you
+- Request a copy of your data in a portable format
+- Request deletion of all your data
+- Revoke access to any connected platform at any time through that platform's settings
+- Withdraw consent at any time by contacting us
+
+## 9. Children's Privacy
+
+Our Service is not directed to children under 13. We do not knowingly collect information from children under 13.
+
+## 10. Changes to This Policy
+
+We may update this Privacy Policy from time to time. We will notify users of any material changes via email or through the Service.
+
+## 11. Contact
+
+For any questions about this Privacy Policy or to exercise your data rights:
 - Email: itsbgart@gmail.com
-- Instagram: @itsbgart
+- Website: www.itsbgart.es

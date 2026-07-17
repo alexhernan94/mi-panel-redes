@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreatorMetrics — Analytics for Content Creators</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; color: #1a1a1a; background: #fafafa; }
+        
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+        }
+        .hero h1 { font-size: 2.8rem; font-weight: 700; margin-bottom: 16px; }
+        .hero p { font-size: 1.2rem; opacity: 0.9; max-width: 600px; margin: 0 auto 32px; line-height: 1.6; }
+        .hero .badge { 
+            display: inline-block; background: rgba(255,255,255,0.2); 
+            padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; 
+            margin-bottom: 24px; 
+        }
+        
+        /* Features */
+        .features { max-width: 900px; margin: 0 auto; padding: 60px 20px; }
+        .features h2 { text-align: center; font-size: 1.8rem; margin-bottom: 40px; color: #333; }
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; }
+        .feature-card {
+            background: white; border-radius: 12px; padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #eee;
+        }
+        .feature-card .icon { font-size: 1.8rem; margin-bottom: 12px; }
+        .feature-card h3 { font-size: 1rem; margin-bottom: 8px; color: #333; }
+        .feature-card p { font-size: 0.85rem; color: #666; line-height: 1.5; }
+        
+        /* How it works */
+        .how-it-works { background: white; padding: 60px 20px; }
+        .how-it-works h2 { text-align: center; font-size: 1.8rem; margin-bottom: 40px; color: #333; }
+        .steps { max-width: 700px; margin: 0 auto; }
+        .step { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 32px; }
+        .step-number {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; flex-shrink: 0;
+        }
+        .step h3 { font-size: 1rem; margin-bottom: 4px; }
+        .step p { font-size: 0.85rem; color: #666; }
+        
+        /* Platforms */
+        .platforms { max-width: 900px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+        .platforms h2 { font-size: 1.8rem; margin-bottom: 16px; color: #333; }
+        .platforms p { color: #666; margin-bottom: 32px; }
+        .platform-logos { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
+        .platform-logos span { font-size: 2.5rem; }
+        
+        /* Footer */
+        .footer { background: #1a1a1a; color: #aaa; padding: 40px 20px; text-align: center; }
+        .footer a { color: #ccc; text-decoration: none; margin: 0 12px; }
+        .footer a:hover { color: white; }
+        .footer .links { margin-bottom: 16px; }
+        .footer .copy { font-size: 0.8rem; }
+        
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .hero p { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <div class="badge">📊 Social Media Analytics</div>
+        <h1>CreatorMetrics</h1>
+        <p>Connect your TikTok, Instagram, and YouTube. See all your metrics in one dashboard. Get AI-powered content ideas tailored to your audience.</p>
+        <a href="https://anailica-itsbgart.streamlit.app/" style="display:inline-block; background:white; color:#667eea; padding:12px 32px; border-radius:8px; font-weight:600; text-decoration:none; font-size:0.95rem; margin-top:8px;">Open Dashboard →</a>
+    </section>
+    
+    <section class="features">
+        <h2>Everything you need to grow</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="icon">📊</div>
+                <h3>Unified Metrics</h3>
+                <p>Views, likes, shares, saves, comments — all platforms in one place. No more switching between apps.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🧠</div>
+                <h3>AI Content Ideas</h3>
+                <p>Get personalized content suggestions based on what actually works for your audience, powered by AI analysis of your data.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⏰</div>
+                <h3>Best Time to Post</h3>
+                <p>Know exactly when your audience is most active. Optimized by platform, day, and format.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📈</div>
+                <h3>Growth Tracking</h3>
+                <p>Track follower growth, set goals, and see projections. Know if you're on track or need to adjust.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔔</div>
+                <h3>Viral Alerts</h3>
+                <p>Get notified instantly when a post goes viral so you can ride the momentum with follow-up content.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔄</div>
+                <h3>Repurposing Suggestions</h3>
+                <p>Identify top-performing content that can be adapted across platforms for maximum reach.</p>
+            </div>
+        </div>
+    </section>
+    
+    <section class="how-it-works">
+        <h2>How it works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div>
+                    <h3>Connect your accounts</h3>
+                    <p>Securely authenticate your TikTok, Instagram, and YouTube accounts via official APIs.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div>
+                    <h3>Automatic data sync</h3>
+                    <p>Your metrics are synced automatically throughout the day. No manual work required.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div>
+                    <h3>Get actionable insights</h3>
+                    <p>Open your dashboard and see exactly what to post, when, and on which platform — backed by your real data.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="platforms">
+        <h2>Supported Platforms</h2>
+        <p>Connect all your social media accounts in one place</p>
+        <div class="platform-logos">
+            <span>📸</span>
+            <span>🎵</span>
+            <span>📺</span>
+        </div>
+        <p style="margin-top: 16px; font-size: 0.9rem;">Instagram · TikTok · YouTube</p>
+    </section>
+    
+    <footer class="footer">
+        <div class="links">
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="mailto:itsbgart@gmail.com">Contact</a>
+        </div>
+        <p class="copy">&copy; 2026 CreatorMetrics. All rights reserved.</p>
+    </footer>
+</body>
+</html>
