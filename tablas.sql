@@ -102,3 +102,30 @@ CREATE TABLE IF NOT EXISTS ideas_ejecutadas (
     CONSTRAINT fk_idea_insight FOREIGN KEY (id_insight) REFERENCES insights_ia(id_insight) ON DELETE CASCADE,
     CONSTRAINT fk_idea_contenido FOREIGN KEY (id_contenido) REFERENCES contenidos(id_contenido) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabla para almacenar comentarios crudos
+CREATE TABLE comentarios_raw (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_contenido VARCHAR(100) NOT NULL,
+    plataforma ENUM('instagram', 'tiktok') NOT NULL,
+    texto VARCHAR(1000) NOT NULL,
+    autor VARCHAR(100) DEFAULT NULL,
+    fecha_comentario DATETIME DEFAULT NULL,
+    fecha_extraccion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_contenido) REFERENCES contenidos(id_contenido) ON DELETE CASCADE,
+    INDEX idx_contenido (id_contenido),
+    INDEX idx_fecha (fecha_extraccion)
+);
+
+-- Tabla para los análisis de Gemini sobre los comentarios
+CREATE TABLE analisis_comentarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plataforma ENUM('instagram', 'tiktok') NOT NULL,
+    sentimiento_global VARCHAR(20),         -- 'positivo', 'neutro', 'negativo'
+    temas_conversacion TEXT,                -- JSON: ["proceso creativo", "encargos", "materiales"]
+    preguntas_frecuentes TEXT,              -- JSON: ["¿haces encargos?", "¿qué papel usas?"]
+    intenciones_compra TEXT,                -- JSON: ["quiero uno", "¿cuánto cuesta?", "link?"]
+    resumen_ia TEXT,                        -- Párrafo resumen de Gemini
+    fecha_analisis DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_fecha (fecha_analisis)
+);

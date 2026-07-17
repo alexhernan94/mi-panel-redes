@@ -36,6 +36,7 @@ from panel.audiencia import renderizar_ratio_audiencia, renderizar_ratio_audienc
 from panel.repurposing import renderizar_repurposing, renderizar_repurposing_tiktok
 from panel.tendencias import renderizar_tendencias, renderizar_tendencias_tiktok, renderizar_diferencias_plataformas
 from panel.ideas_ejecutadas import renderizar_ideas_ejecutadas
+from panel.sentimiento import renderizar_sentimiento
 
 warnings.filterwarnings('ignore')
 
@@ -574,6 +575,10 @@ with tab_ig:
         # Tendencias del nicho (solo IG)
         st.markdown("---")
         renderizar_tendencias(df_filtrado)
+
+        # Análisis de sentimiento en comentarios
+        st.markdown("---")
+        renderizar_sentimiento()
 
 
 # ============================================================

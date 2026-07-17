@@ -291,5 +291,12 @@ def extraer_instagram():
             cursor.close()
             conexion.close()
 
+    # Extraer texto de comentarios (para análisis de sentimiento)
+    try:
+        from extraccion.comentarios_ig import extraer_comentarios_instagram
+        extraer_comentarios_instagram()
+    except Exception as e:
+        logger.warning(f"⚠️ No se pudieron extraer comentarios: {e}")
+
 if __name__ == "__main__":
     extraer_instagram()
