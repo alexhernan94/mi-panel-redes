@@ -10,6 +10,10 @@ on:
 jobs:
   extraer_datos:
     runs-on: ubuntu-latest
+    
+    # 1. Permisos necesarios para que la acción de mantenimiento pueda actuar
+    permissions:
+      contents: write
 
     steps:
       - name: 1. Clonar el repositorio
@@ -71,3 +75,7 @@ jobs:
           DB_NAME: ${{ secrets.DB_NAME }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: python -m alertas.detector
+
+      # 2. Paso final añadido para reiniciar el contador de inactividad
+      - name: 8. Evitar que el workflow se desactive por inactividad
+        uses: gautamkrishnar/keepalive-workflow@v2
